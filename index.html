@@ -58,7 +58,7 @@
   .lb{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden}
   .lb th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); padding:10px 14px; background:var(--bg2)}
   .lb td{padding:0; border-top:1px solid var(--line)}
-  .row-main{display:grid; grid-template-columns:54px 1fr 110px 90px; align-items:center; padding:12px 14px; cursor:pointer; transition:.12s}
+  .row-main{display:grid; grid-template-columns:54px 1fr 90px; align-items:center; padding:12px 14px; cursor:pointer; transition:.12s}
   .row-main:hover{background:var(--card2)}
   .rk{font-weight:800; font-size:17px; color:var(--muted)}
   .rk.t1{color:var(--gold)} .rk.t2{color:#cdd6ff} .rk.t3{color:#e3a06b}
@@ -70,6 +70,7 @@
   .caret{color:var(--dim); transition:.2s; display:inline-block; margin-left:6px}
   .expanded .caret{transform:rotate(90deg)}
   .detail{padding:0 14px 14px 14px; background:var(--bg2)}
+  .tb-detail{padding-top:12px; font-size:13px; color:var(--muted)} .tb-detail b{color:var(--txt)}
   .teamgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; padding-top:12px}
   .tcard{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px}
   .tcard .tn{font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center}
@@ -113,6 +114,12 @@
   .matchrow{display:grid; grid-template-columns:1fr 64px 18px 64px 1fr; gap:8px; align-items:center; padding:9px 14px; border-top:1px solid var(--line)}
   .matchrow .tA{text-align:right} .matchrow .tB{text-align:left}
   .matchrow .ko-time{grid-column:1/-1; text-align:center; font-size:11px; color:var(--dim); margin-top:2px}
+  .rmatch{display:grid; grid-template-columns:1fr 110px 1fr; gap:10px; align-items:center; padding:10px 14px; border-top:1px solid var(--line)}
+  .rmatch .tA{text-align:right} .rmatch .tB{text-align:left}
+  .rmatch.done{background:var(--bg2)}
+  .rscore{text-align:center; font-weight:800; font-size:17px}
+  .rscore .dash{color:var(--dim); margin:0 5px; font-weight:600}
+  .rkick{text-align:center; font-size:11px; color:var(--dim)}
   .matchrow input{width:100%; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:7px; text-align:center; font-size:15px; font-weight:700}
   .matchrow input:focus{outline:none; border-color:var(--accent)}
   .vs{color:var(--dim); text-align:center; font-size:12px}
@@ -146,8 +153,6 @@
   @media(max-width:620px){
     .podium{grid-template-columns:1fr}
     .row-main{grid-template-columns:40px 1fr 70px; }
-    .row-main .tb{display:none}
-    .ko-add{grid-template-columns:1fr 1fr}
   }
 </style>
 </head>
@@ -159,7 +164,7 @@
     <div class="tabs">
       <button class="tab active" data-view="leaderboard">🏆 Leaderboard</button>
       <button class="tab" data-view="standings">📊 Standings</button>
-      <button class="tab" data-view="results">✏️ Enter Results</button>
+      <button class="tab" data-view="results">⚽ Results</button>
       <button class="tab" data-view="about">📖 Rules &amp; Data</button>
     </div>
   </div>
@@ -206,7 +211,7 @@ const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfin
 const KO_LABEL = Object.fromEntries(KO_STAGES);
 
 const PARTICIPANTS = [
- {name:"Jake",picks:["Netherlands","Spain","Morocco","Ecuador","Saudi Arabia","Czechia"],tiebreaker:267},
+ {name:"Jake Levy",picks:["Netherlands","Spain","Morocco","Ecuador","Saudi Arabia","Czechia"],tiebreaker:267},
  {name:"Misha Orduna",picks:["Spain","Germany","Uruguay","Japan","Uzbekistan","Turkiye"],tiebreaker:31},
  {name:"Razvan Lupu",picks:["Spain","Brazil","Austria","Senegal","Norway","Czechia"],tiebreaker:249},
  {name:"Mihai Ferener",picks:["France","Spain","Uruguay","Croatia","Norway","Bosnia and Herzegovina"],tiebreaker:270},
@@ -226,7 +231,7 @@ const PARTICIPANTS = [
  {name:"Austin Rutledge",picks:["Argentina","England","Colombia","Australia","South Africa","New Zealand"],tiebreaker:150},
  {name:"Mirely Perez",picks:["Mexico","Portugal","Croatia","Senegal","Saudi Arabia","Czechia"],tiebreaker:330},
  {name:"Eric Wilson",picks:["Spain","Argentina","Colombia","Morocco","Norway","Turkiye"],tiebreaker:280},
- {name:"Daniel",picks:["Brazil","France","Colombia","Croatia","Saudi Arabia","Sweden"],tiebreaker:169}
+ {name:"Daniel Jacker",picks:["Brazil","France","Colombia","Croatia","Saudi Arabia","Sweden"],tiebreaker:169}
 ].map((p,i)=>({...p, id:i, picks:p.picks.map(canon)}));
 
 // Which teams are owned by at least one player (for highlighting)
@@ -412,7 +417,6 @@ function renderLeaderboard(d){
       <div class="rank">${p.rank}</div>
       <div class="nm">${p.name}</div>
       <div class="pts">${p.total}</div>
-      <div class="tb" style="color:var(--dim)">TB ${p.tiebreaker} · off by ${p.tbDiff}</div>
     </div>`).join("");
 
   const rows = d.board.map(p=>{
@@ -429,9 +433,8 @@ function renderLeaderboard(d){
           <div class="rk t${p.rank<=3?p.rank:''}">${p.rank}</div>
           <div><div class="pname">${p.name}<span class="caret">▸</span></div></div>
           <div class="ptot">${p.total}</div>
-          <div class="tb">guess <b>${p.tiebreaker}</b><br>off by ${p.tbDiff}</div>
         </div>
-        <div class="detail" style="display:none"><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none"><div class="tb-detail">Total-goals guess: <b>${p.tiebreaker}</b> · off by <b>${p.tbDiff}</b></div><div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
@@ -513,55 +516,38 @@ function renderKoBracket(d){
 }
 
 function renderResults(d){
-  // group entry
   const groupForms = Object.keys(GROUPS).map(g=>{
     const ms = state.groups[g];
     const playedN = ms.filter(played).length;
-    const rows = ms.map((m,idx)=>`
-      <div class="matchrow">
+    const rows = ms.map(m=>{
+      const sa=num(m.sa), sb=num(m.sb), done=played(m);
+      const center = done
+        ? `<span class="rscore">${sa}<span class="dash">–</span>${sb}</span>`
+        : `<span class="rkick">${fmtKick(m.kickoff)}</span>`;
+      return `<div class="rmatch ${done?'done':''}">
         <div class="tname tA ${ownClass(m.a)}">${m.a}</div>
-        <input type="number" min="0" value="${m.sa}" oninput="setGroup('${g}',${idx},'sa',this.value)">
-        <div class="vs">–</div>
-        <input type="number" min="0" value="${m.sb}" oninput="setGroup('${g}',${idx},'sb',this.value)">
+        ${center}
         <div class="tname tB ${ownClass(m.b)}">${m.b}</div>
-        <div class="ko-time">${fmtKick(m.kickoff)}</div>
-      </div>`).join("");
-    return `<details class="ginput"><summary>Group ${g} <span class="st">${playedN}/6 matches</span></summary>${rows}</details>`;
+      </div>`;
+    }).join("");
+    return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
   }).join("");
 
-  // knockout entry
-  const teamOpts = ALL_TEAMS.map(t=>`<option value="${t}">${t}</option>`).join("");
-  const stageOpts = KO_STAGES.map(([s,l])=>`<option value="${s}">${l}</option>`).join("");
-  const koList = state.ko.map((m,i)=>{
+  const koList = state.ko.map(m=>{
     const sa=num(m.sa),sb=num(m.sb),done=sa!==null&&sb!==null,tie=done&&sa===sb;
+    const winner = done ? (sa>sb?m.a:sb>sa?m.b:m.winner) : null;
     return `<div class="ko-item">
       <span class="stg">${KO_LABEL[m.stage]||m.stage}</span>
-      <span>${m.a} <input type="number" min="0" class="txt" style="width:52px" value="${m.sa}" oninput="setKo(${i},'sa',this.value)">
-        – <input type="number" min="0" class="txt" style="width:52px" value="${m.sb}" oninput="setKo(${i},'sb',this.value)"> ${m.b}
-        ${tie?`<select onchange="setKo(${i},'winner',this.value)"><option value="">winner (pens)…</option><option ${m.winner===m.a?'selected':''} value="${m.a}">${m.a}</option><option ${m.winner===m.b?'selected':''} value="${m.b}">${m.b}</option></select>`:''}</span>
-      <span class="gd">${done?(sa>sb?m.a:sb>sa?m.b:(m.winner||'tie—pick winner')):'pending'}</span>
-      <button class="btn danger sm" onclick="delKo(${i})">✕</button>
+      <span><span class="${ownClass(m.a)}">${m.a}</span> ${done?`<b>${sa}–${sb}</b>`:'vs'} <span class="${ownClass(m.b)}">${m.b}</span>${tie&&m.winner?` <span class="note">(${m.winner} on pens)</span>`:''}</span>
+      <span class="gd">${done?(winner||'—'):'pending'}</span>
     </div>`;
-  }).join("") || `<div class="note" style="padding:10px 14px">No knockout matches yet.</div>`;
+  }).join("");
 
   $("#results").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Enter goals scored in regulation + extra time (exclude shootouts). Group standings, placement points, and best-third qualification recompute automatically. Everything saves to this browser — use <b>Export</b> in Rules &amp; Data to share the state.</div>
+    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. Owned teams are highlighted.</div>
     <h2 style="font-size:16px;margin:6px 0">Group Stage</h2>
     ${groupForms}
-    <div class="panel">
-      <h2>Knockout Matches</h2>
-      <div class="note" style="margin-bottom:12px">Add each knockout match as it's confirmed. For a match decided on penalties, enter the tied reg/ET score and pick the shootout winner.</div>
-      <div class="ko-add">
-        <select id="ko-stage">${stageOpts}</select>
-        <select id="ko-a">${teamOpts}</select>
-        <input type="number" min="0" class="txt" id="ko-sa" placeholder="–">
-        <div class="vs">–</div>
-        <input type="number" min="0" class="txt" id="ko-sb" placeholder="–">
-        <select id="ko-b">${teamOpts}</select>
-        <button class="btn" onclick="addKo()">+ Add</button>
-      </div>
-      <div style="margin-top:14px">${koList}</div>
-    </div>`;
+    ${state.ko.length?`<div class="panel"><h2>Knockout Stage</h2><div style="margin-top:8px">${koList}</div></div>`:''}`;
 }
 
 function renderAbout(d){
@@ -582,7 +568,7 @@ function renderAbout(d){
     </div>
     <div class="panel"><h2>Live results feed</h2>
       <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · last updated <b>${fmtUpdated()}</b>.
-      An hourly scheduled agent web-searches finished matches and commits <code>results.json</code> to the repo; this page polls it every 3 minutes. Manual entry below is a local override for corrections — use <b>Export</b> to produce a <code>results.json</code> you can commit by hand.</div>
+      An hourly scheduled agent web-searches finished matches and commits <code>results.json</code> to the repo; this page polls it every 3 minutes and shows results read-only. The tools below are for admin use — <b>Export</b> downloads the current snapshot; <b>Import</b>/<b>Reset</b> override locally until the next poll.</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
         <label class="btn ghost" style="cursor:pointer">⬆ Import results.json<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
@@ -595,16 +581,6 @@ function renderAbout(d){
 }
 
 /* ============================ ACTIONS ============================ */
-window.setGroup=(g,idx,k,v)=>{ state.groups[g][idx][k]=v; save(); softRefresh(); };
-window.setKo=(i,k,v)=>{ state.ko[i][k]=v; save(); softRefresh(); };
-window.addKo=()=>{
-  const stage=$("#ko-stage").value, a=$("#ko-a").value, b=$("#ko-b").value;
-  const sa=$("#ko-sa").value, sb=$("#ko-sb").value;
-  if(a===b){ toast("Pick two different teams"); return; }
-  state.ko.push({stage,a,b,sa,sb,winner:""});
-  save(); render(); toast("Match added");
-};
-window.delKo=i=>{ state.ko.splice(i,1); save(); render(); };
 window.exportData=()=>{
   const out={...state, updated:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
@@ -635,19 +611,6 @@ function closestTb(d){
 let tT;
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("show"),1600); }
 
-// Re-render without nuking focus on the input being typed in
-let refreshTimer;
-function softRefresh(){
-  clearTimeout(refreshTimer);
-  refreshTimer=setTimeout(()=>{
-    const active=document.activeElement, view=currentView();
-    const data=compute();
-    renderLeaderboard(data); renderStandings(data); renderAbout(data);
-    // only re-render results view if not actively editing it
-    if(!(active&&active.tagName==="INPUT"&&view==="results")) renderResults(data);
-  },120);
-}
-function currentView(){ return document.querySelector(".view.active").id; }
 
 /* ===================== LIVE DATA (results.json) ===================== */
 // The scheduled agent commits results.json to the repo; the site reads it.
@@ -680,7 +643,7 @@ async function boot(){
   setInterval(poll, 180000); // refresh every 3 min to pick up agent updates
 }
 async function poll(){
-  if(dataSource!=="live" || currentView()==="results") return; // don't clobber manual editing
+  if(dataSource!=="live") return;
   try{
     const j = await fetchResults();
     if(j.updated && j.updated !== lastUpdated){
