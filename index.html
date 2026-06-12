@@ -536,15 +536,19 @@ function render(){
 }
 const ownClass = t => OWNED.has(t) ? "owned" : "";
 const ownersOf = t => PARTICIPANTS.filter(p=>p.picks.includes(t)).map(p=>p.name);
+let popAnchor = null;
 window.showOwners = (t, ev) => {
   const pop = $("#ownpop");
   if(!pop) return;
+  const anchor = ev && (ev.currentTarget || ev.target);
+  // Clicking the same team name again toggles the popover closed.
+  if(pop.classList.contains("show") && anchor && anchor===popAnchor){ hideOwners(); if(ev) ev.stopPropagation(); return; }
+  popAnchor = anchor;
   const owners = ownersOf(t);
   pop.innerHTML = owners.length
     ? `<div class="pop-team">${t}</div><div class="pop-owners">${owners.map(n=>`<span class="pop-owner">${n}</span>`).join("")}</div>`
     : `<div class="pop-team none">${t}</div><div class="pop-empty">Not picked by anyone</div>`;
   pop.classList.add("show"); // show first so we can measure it
-  const anchor = ev && (ev.currentTarget || ev.target);
   const r = anchor ? anchor.getBoundingClientRect()
                    : {left:innerWidth/2, top:innerHeight/2, bottom:innerHeight/2};
   const pw = pop.offsetWidth, ph = pop.offsetHeight, M = 8;
