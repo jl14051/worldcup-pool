@@ -701,6 +701,7 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 // The scheduled agent commits results.json to the repo; the site reads it.
 // localStorage is only a fallback (offline / opened as a local file).
 const RESULTS_URL = "results.json";
+const CHECKED_URL = "checked.json";
 let dataSource = "local", lastUpdated = null, lastChecked = null;
 function fmtUpdated(){
   if(!lastUpdated) return "—";
@@ -745,10 +746,20 @@ async function fetchResults(){
   if(!j || !j.groups || !j.ko) throw new Error("bad shape");
   return j;
 }
+async function fetchChecked(){
+  // Heartbeat lives in its own file; absent until the Action's first run.
+  try{
+    const r = await fetch(CHECKED_URL + "?t=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) return null;
+    const j = await r.json();
+    return j && j.checked ? j.checked : null;
+  }catch(e){ return null; }
+}
 async function boot(){
   try{
     const j = await fetchResults();
-    state = j; lastUpdated = j.updated || null; lastChecked = j.checked || null; dataSource = "live";
+    state = j; lastUpdated = j.updated || null; dataSource = "live";
+    lastChecked = await fetchChecked();
   }catch(e){ /* fall back to localStorage/default already in `state` */ }
   render();
   setInterval(poll, 180000); // refresh every 3 min to pick up agent updates
@@ -757,7 +768,7 @@ async function poll(){
   if(dataSource!=="live") return;
   try{
     const j = await fetchResults();
-    lastChecked = j.checked || lastChecked;
+    lastChecked = (await fetchChecked()) || lastChecked;
     if(j.updated && j.updated !== lastUpdated){
       state = j; lastUpdated = j.updated; render(); toast("Results updated ✓");
     }else{

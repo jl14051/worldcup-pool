@@ -9,10 +9,11 @@ after extra time cannot have its advancing team determined and fails the run
 rather than guessing. The third-place playoff is intentionally not scored and
 is skipped.
 
-Every successful run also stamps results["checked"] with the current UTC time
-(a heartbeat) and rewrites the file, so each run commits the latest check time
-even when no score moved. results["updated"] is bumped only when a score
-actually changed, so the front-end keys its change detection on "updated".
+Every successful run writes checked.json {"checked": <UTC now>} as a heartbeat,
+so the page can show when the feed was last read even when nothing changed.
+results.json is rewritten only when a score actually moved (bumping "updated"),
+keeping its commit history meaningful; the front-end keys its change detection
+on results.json's "updated" and reads the heartbeat separately.
 
 Fail-loud contract: any finished game that cannot be fully and confidently
 recorded exits non-zero, so the workflow fails and the repo owner is alerted
@@ -34,6 +35,7 @@ import urllib.request
 
 API = "https://worldcup26.ir/get/games"
 RESULTS = "results.json"
+CHECKED = "checked.json"
 
 # Stage discriminator is the feed's lowercase "type" field. These five values
 # are the knockout rounds the pool scores. "group" is handled separately;
@@ -237,19 +239,21 @@ def main():
 
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
-    # "checked" is a heartbeat: stamped on every successful run so the page can
-    # show when the feed was last read, even when nothing changed. "updated" is
-    # only bumped when a score actually moved, so the front-end keeps keying its
-    # change detection on "updated" and ignores heartbeat-only writes.
+    # results.json is rewritten only when a score actually moved, so its commit
+    # history stays meaningful (every change is a real result). The "checked"
+    # heartbeat lives in its own file, rewritten every run, so the page can show
+    # when the feed was last read without churning results.json.
     if changed:
         results["updated"] = now
-    results["checked"] = now
+        with open(RESULTS, "w") as f:
+            json.dump(results, f, separators=(",", ":"))
+        print("results.json updated")
+    else:
+        print("no score change")
 
-    # Always rewrite the file (the heartbeat always differs), so every run
-    # produces a commit recording the latest check time.
-    with open(RESULTS, "w") as f:
-        json.dump(results, f, separators=(",", ":"))
-    print("results.json updated" if changed else "heartbeat only (no score change)")
+    with open(CHECKED, "w") as f:
+        json.dump({"checked": now}, f, separators=(",", ":"))
+    print(f"checked.json stamped {now}")
 
     # Tell the workflow whether scores moved, so the commit message stays honest.
     gh_out = os.environ.get("GITHUB_OUTPUT")
