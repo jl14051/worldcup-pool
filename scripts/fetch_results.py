@@ -22,6 +22,7 @@ import datetime
 import json
 import re
 import sys
+import time
 import unicodedata
 import urllib.request
 
@@ -93,21 +94,27 @@ def to_int(x):
 
 
 def fetch_games():
-    try:
-        req = urllib.request.Request(API, headers={"User-Agent": "wc-pool-bot"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            raw = r.read().decode("utf-8")
-    except Exception as e:
-        fail(f"API request failed: {e}")
-    try:
-        data = json.loads(raw)
-    except Exception as e:
-        fail(f"API returned invalid JSON: {e}")
-    games = data.get("games")
-    if not isinstance(games, list) or len(games) < 104:
-        n = len(games) if isinstance(games, list) else "n/a"
-        fail(f"Unexpected API shape: games count = {n}")
-    return games
+    # Retry transient failures (network blip, partial body, brief 5xx) a few
+    # times before failing loud, so a momentary feed hiccup does not open an
+    # alert issue on its own. A persistent failure still exits non-zero.
+    last_err = None
+    for attempt in range(1, 4):
+        try:
+            req = urllib.request.Request(API, headers={"User-Agent": "wc-pool-bot"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                raw = r.read().decode("utf-8")
+            data = json.loads(raw)
+            games = data.get("games")
+            if not isinstance(games, list) or len(games) < 104:
+                n = len(games) if isinstance(games, list) else "n/a"
+                raise ValueError(f"unexpected API shape: games count = {n}")
+            return games
+        except Exception as e:
+            last_err = e
+            print(f"::warning::feed fetch attempt {attempt}/3 failed: {e}", file=sys.stderr)
+            if attempt < 3:
+                time.sleep(2 * attempt)
+    fail(f"API fetch failed after 3 attempts: {last_err}")
 
 
 def main():
