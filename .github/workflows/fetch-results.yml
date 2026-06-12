@@ -1,0 +1,68 @@
+name: Fetch World Cup results
+
+on:
+  schedule:
+    - cron: "5 * * * *"   # hourly at :05 UTC
+  workflow_dispatch: {}    # manual "Run workflow" button
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: fetch-results
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Sync results from feed
+        run: python scripts/fetch_results.py
+
+      - name: Commit if changed
+        run: |
+          if [[ -n "$(git status --porcelain results.json)" ]]; then
+            git config user.name "wc-pool-bot"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add results.json
+            git commit -m "Update results from feed"
+            git push
+          else
+            echo "No score changes."
+          fi
+
+      - name: Open an issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled result fetch failed at ${new Date().toISOString()}.`,
+              ``,
+              `Run logs: ${runUrl}`,
+              ``,
+              `Bring this back to Claude to diagnose and fix.`,
+            ].join("\n");
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: "fetch-failure",
+            });
+            if (open.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: "⚠️ Result fetch failed", body, labels: ["fetch-failure"],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open.data[0].number, body,
+              });
+            }
