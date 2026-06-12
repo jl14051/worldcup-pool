@@ -126,6 +126,7 @@
   .rmatch.done{background:var(--bg2)}
   .rscore{text-align:center; font-weight:800; font-size:17px}
   .rscore .dash{color:var(--dim); margin:0 5px; font-weight:600}
+  .pens{color:var(--dim); font-size:.78em; font-weight:700; vertical-align:1px}
   .rkick{text-align:center; font-size:11px; color:var(--dim); display:flex; flex-direction:column; gap:1px; line-height:1.25}
   .rkick .kd, .rkick .kt{white-space:nowrap}
   .rcenter{display:flex; flex-direction:column; align-items:center; gap:2px}
@@ -283,8 +284,7 @@ const PARTICIPANTS = [
 // Which teams are owned by at least one player (for highlighting)
 const OWNED = new Set(PARTICIPANTS.flatMap(p=>p.picks));
 
-/* ====================== STATE / PERSISTENCE ====================== */
-const LS_KEY = "zainar-wc-2026-v2";
+/* ============================ STATE ============================ */
 
 // Real 2026 group-stage fixtures with kickoff (UTC), ordered chronologically per
 // group. Cross-checked across ESPN/CBS/Sky/FIFA/Wikipedia. [teamA, teamB, kickoffUTC]
@@ -310,20 +310,36 @@ function defaultState(){
   }
   return { groups, ko:[] };
 }
-let state = loadState();
-function loadState(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return defaultState();
-    const s = JSON.parse(raw);
-    if(!s.groups || !s.ko) return defaultState();
-    return s;
-  }catch(e){ return defaultState(); }
-}
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+// Read-only public board: the live state always comes from the fetched
+// results.json (see boot/poll). Until that lands we render the empty schedule;
+// nothing is persisted to or read from localStorage.
+let state = defaultState();
 
 const num = v => (v===""||v===null||v===undefined||isNaN(+v)) ? null : Math.max(0,Math.floor(+v));
 const played = m => num(m.sa)!==null && num(m.sb)!==null;
+
+// Winner of a knockout game: decided by goals (sa/sb), then by the penalty
+// shootout (pa/pb) when level, then by the entry's explicit winner field.
+// Returns null if the game is unplayed or a level result has no tiebreak.
+function koWinner(m){
+  const sa=num(m.sa), sb=num(m.sb);
+  if(sa===null||sb===null) return null;
+  if(sa>sb) return m.a;
+  if(sb>sa) return m.b;
+  const pa=num(m.pa), pb=num(m.pb);
+  if(pa!==null && pb!==null && pa!==pb) return pa>pb?m.a:m.b;
+  return m.winner || null;
+}
+// Inline score for a finished knockout game, with m.a on the left. When the
+// game is level and carries a penalty tally (pa/pb), shows the shootout in the
+// standard convention, e.g. "1 (4)–(2) 1". Penalties are display only and are
+// never counted as goals anywhere in the scoring engine.
+function koScore(m){
+  const sa=num(m.sa), sb=num(m.sb), pa=num(m.pa), pb=num(m.pb);
+  if(sa===sb && pa!==null && pb!==null)
+    return `${sa} <span class="pens">(${pa})</span><span class="dash">–</span><span class="pens">(${pb})</span> ${sb}`;
+  return `${sa}<span class="dash">–</span>${sb}`;
+}
 
 // Is a team's finishing position mathematically locked before the group is done?
 // Brute-forces every remaining W/D/L outcome; returns the locked position (1..4)
@@ -409,9 +425,8 @@ function compute(){
     const sa=num(m.sa), sb=num(m.sb);
     if(sa===null||sb===null) return;
     if(!T[m.a]||!T[m.b]) return;
-    T[m.a].goals+=sa; T[m.b].goals+=sb; totalGoals+=sa+sb;
-    let winner=null;
-    if(sa>sb) winner=m.a; else if(sb>sa) winner=m.b; else winner=m.winner||null;
+    T[m.a].goals+=sa; T[m.b].goals+=sb; totalGoals+=sa+sb;  // pa/pb are never goals
+    const winner = koWinner(m);
     const stagePts = SCORE.ko[m.stage]||0;
     [[m.a,sa,sb],[m.b,sb,sa]].forEach(([team,gf,ga])=>{
       const won = team===winner;
@@ -427,21 +442,33 @@ function compute(){
   });
 
   // ---- Alive / eliminated ----
-  // A team is out once the group stage is complete and it did not advance, or
-  // once it loses a knockout match. Before the group stage finishes no team is
-  // treated as eliminated on group grounds.
-  const koLosers = new Set();
+  // A team is eliminated exactly when it has no remaining game that can earn
+  // points. Derived from the recorded ko entries:
+  //   - Losing an R32/R16/QF game eliminates the loser immediately.
+  //   - A Semifinal loss does NOT eliminate: the loser still plays the 3P game.
+  //   - The 3P game eliminates BOTH teams once recorded (this, and only this,
+  //     is what finally eliminates the semifinal losers).
+  //   - The Final eliminates BOTH teams once recorded, champion included
+  //     (neither plays again).
+  //   - Group-stage non-advancers are eliminated once the group stage is done.
+  // Before the group stage finishes no team is eliminated on group grounds.
+  const eliminated = new Set();
   state.ko.forEach(m=>{
     const sa=num(m.sa), sb=num(m.sb);
-    if(sa===null||sb===null) return;
-    const winner = sa>sb?m.a:sb>sa?m.b:(m.winner||null);
-    if(!winner) return;                  // level with no recorded winner: undetermined
-    koLosers.add(winner===m.a?m.b:m.a);
+    if(sa===null||sb===null) return;     // not yet played
+    if(m.stage==="3P" || m.stage==="Final"){
+      eliminated.add(m.a); eliminated.add(m.b);   // no game after this for either
+      return;
+    }
+    if(m.stage==="SF") return;           // SF loser still has the third-place game
+    const winner = koWinner(m);          // score, then winner field when level
+    if(!winner) return;                  // undetermined: eliminate no one yet
+    eliminated.add(winner===m.a?m.b:m.a);
   });
   ALL_TEAMS.forEach(t=>{
     const o=T[t];
     const advancing = o.place<=2 || o.bestThird;
-    o.eliminated = koLosers.has(t) || (allComplete && !advancing);
+    o.eliminated = eliminated.has(t) || (allComplete && !advancing);
     o.alive = !o.eliminated;
   });
 
@@ -618,9 +645,8 @@ function renderResults(){
 }
 
 function matchCenter(m, pendingText){
-  const sa=num(m.sa), sb=num(m.sb), done=played(m);
-  return done
-    ? `<span class="rscore">${sa}<span class="dash">–</span>${sb}</span>`
+  return played(m)
+    ? `<span class="rscore">${koScore(m)}</span>`
     : `<span class="rkick">${pendingText}</span>`;
 }
 
@@ -637,11 +663,16 @@ function resultsByGroup(){
   }).join("");
 
   const koList = state.ko.map(m=>{
-    const sa=num(m.sa),sb=num(m.sb),done=sa!==null&&sb!==null,tie=done&&sa===sb;
-    const winner = done ? (sa>sb?m.a:sb>sa?m.b:m.winner) : null;
+    const done=played(m), tie=done&&num(m.sa)===num(m.sb);
+    const winner = done ? koWinner(m) : null;
+    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}">${team}</span>`;
+    // pa/pb present -> koScore already shows the shootout numbers. A level game
+    // with only a recorded winner gets a worded note instead of invented numbers.
+    const pensNote = (tie && num(m.pa)===null && num(m.pb)===null && m.winner)
+      ? ` <span class="note">(${m.winner} on pens)</span>` : '';
     return `<div class="ko-item">
       <span class="stg">${KO_LABEL[m.stage]||m.stage}</span>
-      <span><span class="${ownClass(m.a)}">${m.a}</span> ${done?`<b>${sa}–${sb}</b>`:'vs'} <span class="${ownClass(m.b)}">${m.b}</span>${tie&&m.winner?` <span class="note">(${m.winner} on pens)</span>`:''}</span>
+      <span>${nm(m.a)} ${done?`<b>${koScore(m)}</b>`:'vs'} ${nm(m.b)}${pensNote}</span>
       <span class="gd">${done?(winner||'—'):'pending'}</span>
     </div>`;
   }).join("");
@@ -683,11 +714,16 @@ function resultsByDate(){
 }
 
 function dateRow(m, pendingText){
+  // For a level knockout decided on penalties (or with a recorded winner),
+  // mark who advanced. The score line shows the result for decided games.
+  const w = (played(m) && m.stage && num(m.sa)===num(m.sb)) ? koWinner(m) : null;
+  const clsA = w ? (w===m.a?' win':' lose') : '';
+  const clsB = w ? (w===m.b?' win':' lose') : '';
   const center = `<span class="rcenter">${matchCenter(m, pendingText)}<span class="rtag">${m.tag}</span></span>`;
   return `<div class="rmatch ${played(m)?'done':''}">
-    <div class="tname tA ${ownClass(m.a)}">${m.a}</div>
+    <div class="tname tA ${ownClass(m.a)}${clsA}">${m.a}</div>
     ${center}
-    <div class="tname tB ${ownClass(m.b)}">${m.b}</div>
+    <div class="tname tB ${ownClass(m.b)}${clsB}">${m.b}</div>
   </div>`;
 }
 
@@ -709,11 +745,9 @@ function renderAbout(d){
     </div>
     <div class="panel"><h2>Live results feed</h2>
       <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · scores last changed <b>${fmtUpdated()}</b> · last checked <b><span id="lastChecked">${fmtChecked()}</span></b>.
-      <b>Last checked</b> is when the GitHub Action last read the results feed (it runs every 30 minutes and records the time on every run). <b>Scores last changed</b> is when a score actually moved. A recent check with an older change time just means nothing new has happened. This page reloads <code>results.json</code> every 3 minutes; results here are read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next reload.</div>
+      <b>Last checked</b> is when the GitHub Action last read the results feed (it runs every 30 minutes and records the time on every run). <b>Scores last changed</b> is when a score actually moved. A recent check with an older change time just means nothing new has happened. Results sync automatically from the feed and this board is read-only; the page reloads <code>results.json</code> every 3 minutes. <b>Export</b> downloads a snapshot of the current data as a <code>results.json</code> file.</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
-        <label class="btn ghost" style="cursor:pointer">⬆ Import results.json<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
-        <button class="btn danger" onclick="resetData()">↺ Reset local results</button>
       </div>
     </div>
     <div class="panel"><h2>About the data</h2>
@@ -729,15 +763,6 @@ window.exportData=()=>{
   a.href=url; a.download="results.json"; a.click(); URL.revokeObjectURL(url);
   toast("Exported results.json");
 };
-window.importData=el=>{
-  const f=el.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=()=>{ try{ const s=JSON.parse(r.result);
-    if(!s.groups||!s.ko) throw 0; state=s; save(); render(); toast("Imported ✓");
-  }catch(e){ toast("Invalid file"); } };
-  r.readAsText(f);
-};
-window.resetData=()=>{ if(confirm("Clear all entered results? This cannot be undone.")){ state=defaultState(); save(); render(); toast("Reset"); } };
 
 function matchesPlayed(){
   return Object.values(state.groups).flat().filter(played).length
