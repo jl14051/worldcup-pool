@@ -445,8 +445,18 @@ function compute(){
     return {...p, teams, total, aliveCount, tbDiff: Math.abs(p.tiebreaker-totalGoals)};
   });
   board.sort((a,b)=> b.total-a.total || a.tbDiff-b.tbDiff || a.name.localeCompare(b.name));
-  let lastTot=null,lastRank=0;
-  board.forEach((p,i)=>{ if(p.total!==lastTot){lastRank=i+1;lastTot=p.total;} p.rank=lastRank; });
+  // Standard competition ranking. Two players share a rank only when they have
+  // the SAME points AND the same tiebreaker distance (closeness of their
+  // total-goals guess to goals scored so far). Otherwise the tiebreaker breaks
+  // the order, so equal-points players still get distinct ranks.
+  board.forEach((p,i)=>{
+    const prev = board[i-1];
+    p.rank = (i>0 && p.total===prev.total && p.tbDiff===prev.tbDiff) ? prev.rank : i+1;
+  });
+  // Flag genuinely tied ranks so the UI can mark them (e.g. "T4").
+  const rankCounts = {};
+  board.forEach(p=>{ rankCounts[p.rank] = (rankCounts[p.rank]||0)+1; });
+  board.forEach(p=>{ p.tied = rankCounts[p.rank] > 1; });
 
   return {T, standings, thirdsRanked, totalGoals, board, allComplete};
 }
@@ -471,9 +481,9 @@ window.showOwners = t => { const o=ownersOf(t); toast(o.length?`${t}: ${o.join("
 function renderLeaderboard(d){
   const anyPlayed = d.totalGoals>0 || state.ko.length>0;
   const podium = d.board.slice(0,3).map((p,i)=>`
-    <div class="pod p${i+1}">
-      <div class="medal">${["🥇","🥈","🥉"][i]}</div>
-      <div class="rank">${p.rank}</div>
+    <div class="pod p${p.rank}">
+      <div class="medal">${["🥇","🥈","🥉"][p.rank-1]}</div>
+      <div class="rank">${p.tied?'T':''}${p.rank}</div>
       <div class="nm">${p.name}</div>
       <div class="pts">${p.total}</div>
     </div>`).join("");
@@ -489,7 +499,7 @@ function renderLeaderboard(d){
     <tr data-id="${p.id}">
       <td>
         <div class="row-main" onclick="toggleRow(${p.id})">
-          <div class="rk t${p.rank<=3?p.rank:''}">${p.rank}</div>
+          <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
