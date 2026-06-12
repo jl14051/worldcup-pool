@@ -122,6 +122,18 @@
   .rscore{text-align:center; font-weight:800; font-size:17px}
   .rscore .dash{color:var(--dim); margin:0 5px; font-weight:600}
   .rkick{text-align:center; font-size:11px; color:var(--dim)}
+  .rcenter{display:flex; flex-direction:column; align-items:center; gap:2px}
+  .rtag{font-size:9px; letter-spacing:.04em; text-transform:uppercase; color:var(--dim)}
+  .seg{display:inline-flex; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:3px; margin-bottom:14px}
+  .segbtn{background:none; border:0; color:var(--muted); font:inherit; font-size:12px; font-weight:600; padding:6px 13px; border-radius:7px; cursor:pointer; transition:.12s}
+  .segbtn:hover:not(.active){color:var(--txt)}
+  .segbtn.active{background:linear-gradient(180deg,var(--accent),#5a3fd6); color:#fff}
+  .daygroup{background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:12px; overflow:hidden}
+  .dayhdr{padding:12px 14px; font-weight:700; font-size:14px; background:var(--bg2); display:flex; justify-content:space-between; align-items:center}
+  .dayhdr.d-today{color:var(--accent)}
+  .drel{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 9px; border-radius:999px; background:var(--line); color:var(--muted)}
+  .drel.d-today{background:var(--accent); color:#fff}
+  .drel.d-tom{background:var(--gold); color:#1a1208}
   .matchrow input{width:100%; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:7px; text-align:center; font-size:15px; font-weight:700}
   .matchrow input:focus{outline:none; border-color:var(--accent)}
   .vs{color:var(--dim); text-align:center; font-size:12px}
@@ -536,21 +548,37 @@ function renderKoBracket(d){
   return `<div class="panel"><h2>Knockout Bracket</h2>${byStage}</div>`;
 }
 
-function renderResults(d){
+let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")||"group"; }catch(e){ return "group"; } })();
+window.setResultsView = v => { resultsView=v; try{ localStorage.setItem("resultsView",v); }catch(e){} renderResults(); };
+
+function renderResults(){
+  const toggle = `<div class="seg">
+      <button class="segbtn ${resultsView==='group'?'active':''}" onclick="setResultsView('group')">By group</button>
+      <button class="segbtn ${resultsView==='date'?'active':''}" onclick="setResultsView('date')">By date</button>
+    </div>`;
+  const body = resultsView==='date' ? resultsByDate() : resultsByGroup();
+  $("#results").innerHTML = `
+    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. Owned teams are highlighted.</div>
+    ${toggle}
+    ${body}`;
+}
+
+function matchCenter(m, pendingText){
+  const sa=num(m.sa), sb=num(m.sb), done=played(m);
+  return done
+    ? `<span class="rscore">${sa}<span class="dash">–</span>${sb}</span>`
+    : `<span class="rkick">${pendingText}</span>`;
+}
+
+function resultsByGroup(){
   const groupForms = Object.keys(GROUPS).map(g=>{
     const ms = state.groups[g];
     const playedN = ms.filter(played).length;
-    const rows = ms.map(m=>{
-      const sa=num(m.sa), sb=num(m.sb), done=played(m);
-      const center = done
-        ? `<span class="rscore">${sa}<span class="dash">–</span>${sb}</span>`
-        : `<span class="rkick">${fmtKick(m.kickoff)}</span>`;
-      return `<div class="rmatch ${done?'done':''}">
+    const rows = ms.map(m=>`<div class="rmatch ${played(m)?'done':''}">
         <div class="tname tA ${ownClass(m.a)}">${m.a}</div>
-        ${center}
+        ${matchCenter(m, fmtKick(m.kickoff))}
         <div class="tname tB ${ownClass(m.b)}">${m.b}</div>
-      </div>`;
-    }).join("");
+      </div>`).join("");
     return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
   }).join("");
 
@@ -564,11 +592,49 @@ function renderResults(d){
     </div>`;
   }).join("");
 
-  $("#results").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. Owned teams are highlighted.</div>
-    <h2 style="font-size:16px;margin:6px 0">Group Stage</h2>
+  return `<h2 style="font-size:16px;margin:6px 0">Group Stage</h2>
     ${groupForms}
     ${state.ko.length?`<div class="panel"><h2>Knockout Stage</h2><div style="margin-top:8px">${koList}</div></div>`:''}`;
+}
+
+function resultsByDate(){
+  const dated = [], undated = [];
+  for(const [g,ms] of Object.entries(state.groups))
+    ms.forEach(m=>dated.push({...m, tag:"Group "+g}));
+  state.ko.forEach(m=>{
+    const item = {...m, tag:KO_LABEL[m.stage]||m.stage};
+    (m.kickoff?dated:undated).push(item);
+  });
+  dated.sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff));
+
+  const days=[], byKey={};
+  dated.forEach(m=>{
+    const info=dayInfo(m.kickoff);
+    if(!byKey[info.key]){ byKey[info.key]={info, ms:[]}; days.push(byKey[info.key]); }
+    byKey[info.key].ms.push(m);
+  });
+
+  const dayBlock = ({info, ms}) => {
+    const relCls = info.rel==="Today"?"d-today":info.rel==="Tomorrow"?"d-tom":"";
+    const rel = info.rel?`<span class="drel ${relCls}">${info.rel}</span>`:`<span class="st">${ms.length} game${ms.length>1?'s':''}</span>`;
+    const rows = ms.map(m=>dateRow(m, fmtTime(m.kickoff))).join("");
+    return `<div class="daygroup"><div class="dayhdr ${info.rel==='Today'?'d-today':''}">${info.label}${rel}</div>${rows}</div>`;
+  };
+
+  const dayHtml = days.map(dayBlock).join("");
+  const koHtml = undated.length
+    ? `<div class="daygroup"><div class="dayhdr">Knockout stage <span class="st">date TBD</span></div>${undated.map(m=>dateRow(m,"TBD")).join("")}</div>`
+    : "";
+  return dayHtml + koHtml || `<div class="empty">No fixtures to show.</div>`;
+}
+
+function dateRow(m, pendingText){
+  const center = `<span class="rcenter">${matchCenter(m, pendingText)}<span class="rtag">${m.tag}</span></span>`;
+  return `<div class="rmatch ${played(m)?'done':''}">
+    <div class="tname tA ${ownClass(m.a)}">${m.a}</div>
+    ${center}
+    <div class="tname tB ${ownClass(m.b)}">${m.b}</div>
+  </div>`;
 }
 
 function renderAbout(d){
@@ -645,6 +711,21 @@ function fmtKick(iso){
   if(!iso) return "";
   const d=new Date(iso); if(isNaN(d)) return "";
   return d.toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+}
+function fmtTime(iso){
+  if(!iso) return "";
+  const d=new Date(iso); if(isNaN(d)) return "";
+  return d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+}
+// Day bucket + relative label (Today/Tomorrow/Yesterday) in the viewer's local time.
+function dayInfo(iso){
+  const d=new Date(iso);
+  const startOf = x => new Date(x.getFullYear(),x.getMonth(),x.getDate());
+  const day = startOf(d);
+  const diff = Math.round((day - startOf(new Date()))/86400000);
+  const rel = diff===0?"Today":diff===1?"Tomorrow":diff===-1?"Yesterday":"";
+  const label = d.toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"});
+  return {key:day.getTime(), label, rel};
 }
 async function fetchResults(){
   const r = await fetch(RESULTS_URL + "?t=" + Date.now(), {cache:"no-store"});
