@@ -244,6 +244,9 @@ const ALL_TEAMS = Object.values(GROUPS).flat().sort();
 
 const SCORE = { goal:1, win:3, draw:1, first:8, second:4, bestThird:2,
                 ko:{R32:5, R16:8, QF:13, SF:21, Final:34} };
+// 2026 World Cup match count, used to turn each player's full-tournament
+// total-goals guess into a per-game rate for the tiebreaker.
+const TOURNAMENT_GAMES = 104;
 const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfinal"],
                    ["SF","Semifinal"],["Final","Final"]];
 const KO_LABEL = Object.fromEntries(KO_STAGES);
@@ -438,11 +441,18 @@ function compute(){
   });
 
   // ---- Participants ----
+  // Tiebreaker on a per-game basis: compare each player's predicted goals/game
+  // (their full-tournament guess spread over all 104 games) to the actual rate
+  // so far. A rate stabilizes after a few matches, so this is meaningful from
+  // the first game, unlike comparing a season total to partial cumulative goals.
+  const gamesPlayed = matchesPlayed();
+  const goalsPerGame = gamesPlayed ? totalGoals/gamesPlayed : 0;
   const board = PARTICIPANTS.map(p=>{
     const teams = p.picks.map(t=>T[t]);
     const total = teams.reduce((s,t)=>s+t.total,0);
     const aliveCount = teams.filter(t=>t.alive).length;
-    return {...p, teams, total, aliveCount, tbDiff: Math.abs(p.tiebreaker-totalGoals)};
+    const guessPerGame = p.tiebreaker / TOURNAMENT_GAMES;
+    return {...p, teams, total, aliveCount, guessPerGame, tbDiff: Math.abs(guessPerGame-goalsPerGame)};
   });
   board.sort((a,b)=> b.total-a.total || a.tbDiff-b.tbDiff || a.name.localeCompare(b.name));
   // Standard competition ranking. Two players share a rank only when they have
@@ -458,7 +468,7 @@ function compute(){
   board.forEach(p=>{ rankCounts[p.rank] = (rankCounts[p.rank]||0)+1; });
   board.forEach(p=>{ p.tied = rankCounts[p.rank] > 1; });
 
-  return {T, standings, thirdsRanked, totalGoals, board, allComplete};
+  return {T, standings, thirdsRanked, totalGoals, goalsPerGame, board, allComplete};
 }
 // FIFA-style: pts, GD, GF (simplified)
 function cmpTeam(a,b){
@@ -503,7 +513,7 @@ function renderLeaderboard(d){
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
-        <div class="detail" style="display:none"><div class="tb-detail">Total-goals guess: <b>${p.tiebreaker}</b></div><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none"><div class="tb-detail">Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · actual so far: <b>${d.goalsPerGame.toFixed(2)}</b></div><div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
