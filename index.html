@@ -457,7 +457,7 @@ function renderLeaderboard(d){
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
-        <div class="detail" style="display:none"><div class="tb-detail">Total-goals guess: <b>${p.tiebreaker}</b> · off by <b>${p.tbDiff}</b></div><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none"><div class="tb-detail">Total-goals guess: <b>${p.tiebreaker}</b></div><div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
@@ -465,9 +465,7 @@ function renderLeaderboard(d){
   $("#leaderboard").innerHTML = `
     <div class="stat-strip">
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Goals so far</div></div>
-      <div class="stat"><div class="v">${d.board[0]?d.board[0].total:0}</div><div class="l">Leader points</div></div>
-      <div class="stat"><div class="v">${matchesPlayed()}</div><div class="l">Matches entered</div></div>
-      <div class="stat"><div class="v">${closestTb(d)}</div><div class="l">Closest tiebreaker${d.allComplete?'':' (projected)'}</div></div>
+      <div class="stat"><div class="v">${matchesPlayed()} / ${matchesTotal()}</div><div class="l">Matches played</div></div>
     </div>
     ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet. The tournament kicks off today; group scores sync automatically as matches finish, and standings update live.</div>`}
     <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span></th></tr></thead>
@@ -625,10 +623,8 @@ function matchesPlayed(){
   return Object.values(state.groups).flat().filter(played).length
     + state.ko.filter(m=>num(m.sa)!==null&&num(m.sb)!==null).length;
 }
-function closestTb(d){
-  if(d.totalGoals===0) return "—";
-  const best=d.board.reduce((a,b)=>a.tbDiff<=b.tbDiff?a:b);
-  return best.name.split(" ")[0]+" ("+best.tbDiff+")";
+function matchesTotal(){
+  return Object.values(state.groups).flat().length + state.ko.length;
 }
 
 let tT;
