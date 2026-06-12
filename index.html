@@ -171,6 +171,13 @@
   .stat .l{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px}
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--green); color:#04240f; padding:10px 18px; border-radius:10px; font-weight:700; opacity:0; transition:.25s; pointer-events:none; z-index:50}
   .toast.show{opacity:1}
+  .ownpop{position:fixed; z-index:60; min-width:150px; max-width:260px; background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:9px 11px; box-shadow:0 10px 28px rgba(0,0,0,.45); opacity:0; transform:translateY(-4px); transition:.12s; pointer-events:none; visibility:hidden}
+  .ownpop.show{opacity:1; transform:none; pointer-events:auto; visibility:visible}
+  .ownpop .pop-team{font-weight:700; font-size:13px; margin-bottom:5px; color:var(--accent)}
+  .ownpop .pop-team.none{color:var(--muted)}
+  .ownpop .pop-owners{display:flex; flex-direction:column; gap:3px}
+  .ownpop .pop-owner{font-size:13px; color:var(--txt)}
+  .ownpop .pop-empty{font-size:13px; color:var(--dim)}
   @media(max-width:620px){
     html{scroll-padding-top:104px}
     /* Reclaim sticky-header space: smaller title, drop the decorative
@@ -217,6 +224,7 @@
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="ownpop" id="ownpop"></div>
 
 <script>
 /* ============================ DATA ============================ */
@@ -528,7 +536,33 @@ function render(){
 }
 const ownClass = t => OWNED.has(t) ? "owned" : "";
 const ownersOf = t => PARTICIPANTS.filter(p=>p.picks.includes(t)).map(p=>p.name);
-window.showOwners = t => { const o=ownersOf(t); toast(o.length?`${t}: ${o.join(", ")}`:`${t}: not picked by anyone`); };
+window.showOwners = (t, ev) => {
+  const pop = $("#ownpop");
+  if(!pop) return;
+  const owners = ownersOf(t);
+  pop.innerHTML = owners.length
+    ? `<div class="pop-team">${t}</div><div class="pop-owners">${owners.map(n=>`<span class="pop-owner">${n}</span>`).join("")}</div>`
+    : `<div class="pop-team none">${t}</div><div class="pop-empty">Not picked by anyone</div>`;
+  pop.classList.add("show"); // show first so we can measure it
+  const anchor = ev && (ev.currentTarget || ev.target);
+  const r = anchor ? anchor.getBoundingClientRect()
+                   : {left:innerWidth/2, top:innerHeight/2, bottom:innerHeight/2};
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, M = 8;
+  let left = r.left;
+  if(left + pw > innerWidth - M) left = innerWidth - pw - M;
+  if(left < M) left = M;
+  let top = r.bottom + 6;
+  if(top + ph > innerHeight - M) top = r.top - ph - 6; // flip above if no room below
+  if(top < M) top = M;
+  pop.style.left = left + "px";
+  pop.style.top = top + "px";
+  if(ev) ev.stopPropagation();
+};
+function hideOwners(){ const p=$("#ownpop"); if(p) p.classList.remove("show"); }
+document.addEventListener("click", e=>{ const p=$("#ownpop"); if(p && p.classList.contains("show") && !p.contains(e.target)) hideOwners(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") hideOwners(); });
+window.addEventListener("scroll", hideOwners, true);
+window.addEventListener("resize", hideOwners);
 
 function renderLeaderboard(d){
   const anyPlayed = d.totalGoals>0 || state.ko.length>0;
@@ -594,7 +628,7 @@ function renderStandings(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}')" style="cursor:pointer">${t.team}</td>
+        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
@@ -662,9 +696,9 @@ function resultsByGroup(){
     const ms = state.groups[g];
     const playedN = ms.filter(played).length;
     const rows = ms.map(m=>`<div class="rmatch ${played(m)?'done':''}">
-        <div class="tname tA ${ownClass(m.a)}" onclick="showOwners('${m.a}')">${m.a}</div>
+        <div class="tname tA ${ownClass(m.a)}" onclick="showOwners('${m.a}', event)">${m.a}</div>
         ${matchCenter(m, fmtKick(m.kickoff))}
-        <div class="tname tB ${ownClass(m.b)}" onclick="showOwners('${m.b}')">${m.b}</div>
+        <div class="tname tB ${ownClass(m.b)}" onclick="showOwners('${m.b}', event)">${m.b}</div>
       </div>`).join("");
     return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
   }).join("");
@@ -672,7 +706,7 @@ function resultsByGroup(){
   const koList = state.ko.map(m=>{
     const done=played(m), tie=done&&num(m.sa)===num(m.sb);
     const winner = done ? koWinner(m) : null;
-    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}" onclick="showOwners('${team}')" style="cursor:pointer">${team}</span>`;
+    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`;
     // pa/pb present -> koScore already shows the shootout numbers. A level game
     // with only a recorded winner gets a worded note instead of invented numbers.
     const pensNote = (tie && num(m.pa)===null && num(m.pb)===null && m.winner)
@@ -728,9 +762,9 @@ function dateRow(m, pendingText){
   const clsB = w ? (w===m.b?' win':' lose') : '';
   const center = `<span class="rcenter">${matchCenter(m, pendingText)}<span class="rtag">${m.tag}</span></span>`;
   return `<div class="rmatch ${played(m)?'done':''}">
-    <div class="tname tA ${ownClass(m.a)}${clsA}" onclick="showOwners('${m.a}')">${m.a}</div>
+    <div class="tname tA ${ownClass(m.a)}${clsA}" onclick="showOwners('${m.a}', event)">${m.a}</div>
     ${center}
-    <div class="tname tB ${ownClass(m.b)}${clsB}" onclick="showOwners('${m.b}')">${m.b}</div>
+    <div class="tname tB ${ownClass(m.b)}${clsB}" onclick="showOwners('${m.b}', event)">${m.b}</div>
   </div>`;
 }
 
