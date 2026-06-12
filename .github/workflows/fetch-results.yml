@@ -31,6 +31,10 @@ jobs:
         run: python scripts/fetch_results.py
 
       - name: Commit if changed
+        # always() so the files written before the post-write shootout alert
+        # (which exits non-zero) still commit. scores_changed is set before that
+        # fail, so the commit-message logic below still has it.
+        if: always()
         run: |
           git add results.json checked.json
           if git diff --cached --quiet; then

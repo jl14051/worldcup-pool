@@ -18,11 +18,23 @@ on results.json's "updated" and reads the heartbeat separately.
 Fail-loud contract: any finished game that cannot be fully and confidently
 recorded exits non-zero, so the workflow fails and the repo owner is alerted
 instead of the leaderboard silently freezing or storing a partial result. A
-partial or silent skip of a finished game is itself a failure. The run exits
-non-zero, naming the offending raw data, when a finished game has a team name
-that does not resolve to a canonical name, a knockout game whose stage cannot
-be identified, a knockout game level after extra time, or any missing or
-non-numeric score.
+partial or silent skip of a finished game is itself a failure. The run fails
+immediately, before any write, naming the offending raw data, when a finished
+game has a team name that does not resolve to a canonical name, a knockout
+game whose stage cannot be identified, a missing or non-numeric score, or a
+finished group game absent from the bracket. Those signal a code or alias fix
+is needed.
+
+A knockout game level after extra time is the one exception. It means a
+penalty shootout, which the feed cannot represent, and it is a permanent
+condition that would recur on every run for the rest of the tournament.
+Aborting mid-parse would block every later knockout game from syncing, so such
+a game is never auto-scored: if results["ko"] already holds a result for the
+pair (hand-entered or from an earlier run) it is skipped silently, otherwise it
+is collected and, only after results.json is written, checked.json is stamped,
+and the scores_changed output is set, the run exits non-zero to nag the owner
+to hand-enter the advancing team. Every other game still syncs in the meantime,
+and the commit step runs on always() so those writes are not lost to the fail.
 """
 import datetime
 import json
@@ -140,17 +152,21 @@ def main():
     group_scores = {}   # frozenset(pair) -> {team: score}
     group_labels = {}   # frozenset(pair) -> "Home vs Away"
     ko_games = []       # [(stage, home, away, home_score, away_score)]
+    pending_shootouts = []  # ["Home vs Away (stage)"] level after ET, need hand-entry
     group_finished = 0
 
     for game in games:
         if str(game.get("finished", "")).upper() != "TRUE":
             continue
         gtype = str(game.get("type", "group")).lower()
+        gtype_norm = re.sub(r"[^a-z0-9]", "", gtype)
         home_raw = game.get("home_team_name_en")
         away_raw = game.get("away_team_name_en")
 
-        if gtype == "third":
-            continue  # third-place playoff intentionally not scored
+        # Third-place playoff is intentionally not scored. Match common label
+        # variants, not just the exact string "third".
+        if gtype_norm in {"third", "3rd", "thirdplace", "bronze"}:
+            continue
 
         is_group = gtype == "group"
         if not is_group and gtype not in STAGE:
@@ -184,11 +200,21 @@ def main():
             group_labels[key] = f"{home} vs {away}"
         else:
             if hs == as_:
-                fail(
-                    f"Finished {stage} game level after extra time "
-                    f"({home} {hs}-{as_} {away}); feed carries no penalty-shootout "
-                    f"result, cannot determine who advanced"
+                # Level after extra time means a penalty shootout, which the
+                # feed cannot represent. This is a permanent condition that
+                # would recur every run, so do NOT abort here (that would block
+                # every later knockout game from syncing). If results["ko"]
+                # already holds a result for this pair (hand-entered or from an
+                # earlier run), it is handled, so skip silently. Otherwise record
+                # nothing (never guess a score) and collect a label for an alert
+                # raised after all writes, nagging the owner to hand-enter it.
+                already = any(
+                    frozenset((e.get("a"), e.get("b"))) == frozenset((home, away))
+                    for e in results.get("ko", [])
                 )
+                if not already:
+                    pending_shootouts.append(f"{home} vs {away} ({stage})")
+                continue
             ko_games.append((stage, home, away, hs, as_))
 
     changed = False
@@ -260,6 +286,19 @@ def main():
     if gh_out:
         with open(gh_out, "a") as f:
             f.write(f"scores_changed={'true' if changed else 'false'}\n")
+
+    # Raise the shootout alert only AFTER every write above. By now results.json
+    # holds every result that resolved this run, checked.json is stamped, and the
+    # scores_changed output is set, so the commit step (which runs on always())
+    # still captures them. Failing here keeps nagging the owner to hand-enter the
+    # advancing team until that result lands in results["ko"].
+    if pending_shootouts:
+        fail(
+            "Knockout game(s) level after extra time need a hand-entered result; "
+            f"the feed carries no penalty-shootout data: {pending_shootouts}. "
+            'Add the advancing scoreline to results.json "ko"; until then this run '
+            "exits non-zero to keep alerting."
+        )
 
 
 if __name__ == "__main__":

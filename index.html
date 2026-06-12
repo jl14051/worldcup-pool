@@ -514,7 +514,7 @@ function renderLeaderboard(d){
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
-        <div class="detail" style="display:none"><div class="tb-detail">Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · actual so far: <b>${d.goalsPerGame.toFixed(2)}</b></div><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none"><div class="tb-detail">Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · Goals/game actual: <b>${d.goalsPerGame.toFixed(2)}</b></div><div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
