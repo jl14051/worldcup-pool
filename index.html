@@ -19,6 +19,7 @@
                var(--bg);
     color:var(--txt); min-height:100vh;
   }
+  html{scroll-padding-top:130px}
   header{
     padding:22px 20px 14px; border-bottom:1px solid var(--line);
     background:linear-gradient(180deg, rgba(124,92,255,.10), transparent);
@@ -121,7 +122,8 @@
   .rmatch.done{background:var(--bg2)}
   .rscore{text-align:center; font-weight:800; font-size:17px}
   .rscore .dash{color:var(--dim); margin:0 5px; font-weight:600}
-  .rkick{text-align:center; font-size:11px; color:var(--dim)}
+  .rkick{text-align:center; font-size:11px; color:var(--dim); display:flex; flex-direction:column; gap:1px; line-height:1.25}
+  .rkick .kd, .rkick .kt{white-space:nowrap}
   .rcenter{display:flex; flex-direction:column; align-items:center; gap:2px}
   .rtag{font-size:9px; letter-spacing:.04em; text-transform:uppercase; color:var(--dim)}
   .seg{display:inline-flex; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:3px; gap:3px; margin-bottom:14px}
@@ -165,7 +167,25 @@
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--green); color:#04240f; padding:10px 18px; border-radius:10px; font-weight:700; opacity:0; transition:.25s; pointer-events:none; z-index:50}
   .toast.show{opacity:1}
   @media(max-width:620px){
-    .podium{grid-template-columns:1fr}
+    html{scroll-padding-top:104px}
+    /* Reclaim sticky-header space: smaller title, drop the decorative
+       subtitle, and let the tab bar scroll horizontally on one row. */
+    header{padding:12px 0 0}
+    .wrap{padding:0 14px}
+    h1{font-size:18px; line-height:1.15}
+    .sub{display:none}
+    .tabs{margin-top:10px; padding-bottom:10px; flex-wrap:nowrap; overflow-x:auto;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{flex:0 0 auto; padding:7px 12px; font-size:13px}
+    main{padding:16px 0 72px}
+    /* Keep the podium 3-across but compact, instead of three tall stacked cards. */
+    .podium{grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px}
+    .pod{padding:12px 6px; border-radius:12px}
+    .pod .rank{font-size:22px}
+    .pod .nm{font-size:12px; margin-top:2px}
+    .pod .pts{font-size:18px; margin-top:4px}
+    .pod .medal{font-size:15px}
     .row-main{grid-template-columns:40px 1fr 70px; }
   }
 </style>
@@ -722,7 +742,9 @@ function paintChecked(){
 function fmtKick(iso){
   if(!iso) return "";
   const d=new Date(iso); if(isNaN(d)) return "";
-  return d.toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  const date=d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+  const time=d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+  return `<span class="kd">${date}</span><span class="kt">${time}</span>`;
 }
 function fmtTime(iso){
   if(!iso) return "";
