@@ -199,7 +199,7 @@
 <header>
   <div class="wrap">
     <h1>⚽ ZaiNar <span class="accent">World Cup Pool</span> 2026</h1>
-    <div class="sub">Draft-six-teams office pool · live leaderboard · 21 players</div>
+    <div class="sub" id="subline">Draft-six-teams office pool · live leaderboard</div>
     <div class="tabs">
       <button class="tab active" data-view="leaderboard">🏆 Leaderboard</button>
       <button class="tab" data-view="standings">📊 Standings</button>
@@ -284,6 +284,12 @@ const PARTICIPANTS = [
 
 // Which teams are owned by at least one player (for highlighting)
 const OWNED = new Set(PARTICIPANTS.flatMap(p=>p.picks));
+
+// Keep the header player count in sync with the roster.
+{
+  const sub = document.getElementById("subline");
+  if(sub) sub.textContent = `Draft-six-teams office pool · live leaderboard · ${PARTICIPANTS.length} players`;
+}
 
 /* ============================ STATE ============================ */
 
