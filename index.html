@@ -552,7 +552,10 @@ window.showOwners = (t, ev) => {
   const r = anchor ? anchor.getBoundingClientRect()
                    : {left:innerWidth/2, top:innerHeight/2, bottom:innerHeight/2};
   const pw = pop.offsetWidth, ph = pop.offsetHeight, M = 8;
-  let left = r.left;
+  // The team name often sits inside a wide, right-aligned grid cell, so the
+  // cell's left edge is far from the visible text. Anchor to the click point
+  // when we have one; fall back to the cell's left edge otherwise.
+  let left = (ev && typeof ev.clientX === "number" && ev.clientX > 0) ? ev.clientX : r.left;
   if(left + pw > innerWidth - M) left = innerWidth - pw - M;
   if(left < M) left = M;
   let top = r.bottom + 6;
