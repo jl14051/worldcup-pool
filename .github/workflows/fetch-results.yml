@@ -27,6 +27,7 @@ jobs:
           python-version: "3.x"
 
       - name: Sync results from feed
+        id: sync
         run: python scripts/fetch_results.py
 
       - name: Commit if changed
@@ -35,10 +36,14 @@ jobs:
             git config user.name "wc-pool-bot"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add results.json
-            git commit -m "Update results from feed"
+            if [[ "${{ steps.sync.outputs.scores_changed }}" == "true" ]]; then
+              git commit -m "Update results from feed"
+            else
+              git commit -m "Heartbeat: record last check time"
+            fi
             git push
           else
-            echo "No score changes."
+            echo "No file change."
           fi
 
       - name: Open an issue on failure

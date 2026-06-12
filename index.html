@@ -655,7 +655,7 @@ function renderAbout(d){
     </div>
     <div class="panel"><h2>Live results feed</h2>
       <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · scores last changed <b>${fmtUpdated()}</b> · last checked <b><span id="lastChecked">${fmtChecked()}</span></b>.
-      <b>Last checked</b> is when this page most recently pulled <code>results.json</code> (it reloads every 3 minutes). <b>Scores last changed</b> is when a score actually moved: a GitHub Action reads the results feed every few minutes and commits <code>results.json</code> only when something changes, so a recent check with an older change time just means nothing new has happened. Results here are read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next reload.</div>
+      <b>Last checked</b> is when the GitHub Action last read the results feed (it runs every 30 minutes and records the time on every run). <b>Scores last changed</b> is when a score actually moved. A recent check with an older change time just means nothing new has happened. This page reloads <code>results.json</code> every 3 minutes; results here are read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next reload.</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
         <label class="btn ghost" style="cursor:pointer">⬆ Import results.json<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
@@ -708,7 +708,9 @@ function fmtUpdated(){
   return d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 }
 function fmtChecked(){
-  return lastChecked ? lastChecked.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}) : "—";
+  if(!lastChecked) return "—";
+  const d=new Date(lastChecked); if(isNaN(d)) return lastChecked;
+  return d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 }
 // Update just the "last checked" stamp without a full re-render (polls that
 // find no change still tick this).
@@ -746,7 +748,7 @@ async function fetchResults(){
 async function boot(){
   try{
     const j = await fetchResults();
-    state = j; lastUpdated = j.updated || null; lastChecked = new Date(); dataSource = "live";
+    state = j; lastUpdated = j.updated || null; lastChecked = j.checked || null; dataSource = "live";
   }catch(e){ /* fall back to localStorage/default already in `state` */ }
   render();
   setInterval(poll, 180000); // refresh every 3 min to pick up agent updates
@@ -755,7 +757,7 @@ async function poll(){
   if(dataSource!=="live") return;
   try{
     const j = await fetchResults();
-    lastChecked = new Date();
+    lastChecked = j.checked || lastChecked;
     if(j.updated && j.updated !== lastUpdated){
       state = j; lastUpdated = j.updated; render(); toast("Results updated ✓");
     }else{
