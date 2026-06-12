@@ -49,7 +49,11 @@
   .pod .rank{font-size:30px; font-weight:800}
   .pod .nm{font-weight:700; margin-top:4px; font-size:15px}
   .pod .pts{font-size:26px; font-weight:800; margin-top:6px}
-  .pod.p1{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset, 0 8px 30px rgba(255,206,77,.12)}
+  /* Medal borders, descending prominence: gold (full ring + brightest glow)
+     stays clearly first, then silver, then bronze (thin, faint). */
+  .pod.p1{border-color:var(--gold); box-shadow:0 0 0 1.5px var(--gold) inset, 0 10px 34px rgba(255,206,77,.22)}
+  .pod.p2{border-color:#cdd6ff; box-shadow:0 0 0 1px rgba(205,214,255,.45) inset, 0 6px 22px rgba(205,214,255,.09)}
+  .pod.p3{border-color:#e3a06b; box-shadow:0 0 0 1px rgba(227,160,107,.4) inset, 0 6px 20px rgba(227,160,107,.08)}
   .pod.p1 .rank,.pod.p1 .pts{color:var(--gold)}
   .pod.p2 .rank,.pod.p2 .pts{color:#cdd6ff}
   .pod.p3 .rank,.pod.p3 .pts{color:#e3a06b}
