@@ -250,7 +250,11 @@ const SCORE = { goal:1, win:3, draw:1, first:8, second:4, bestThird:2,
 const TOURNAMENT_GAMES = 104;
 const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfinal"],
                    ["SF","Semifinal"],["Final","Final"]];
-const KO_LABEL = Object.fromEntries(KO_STAGES);
+// Stage marker for the third-place playoff. Kept OUT of KO_STAGES and SCORE.ko
+// on purpose: its goals count but it awards no win points, and it must not show
+// in the knockout bracket. Only its display label lives here.
+const THIRD_PLACE = "3P";
+const KO_LABEL = {...Object.fromEntries(KO_STAGES), [THIRD_PLACE]:"Third Place"};
 
 const PARTICIPANTS = [
  {name:"Jake Levy",picks:["Netherlands","Spain","Morocco","Ecuador","Saudi Arabia","Czechia"],tiebreaker:267},
@@ -469,7 +473,10 @@ function compute(){
   board.forEach(p=>{ rankCounts[p.rank] = (rankCounts[p.rank]||0)+1; });
   board.forEach(p=>{ p.tied = rankCounts[p.rank] > 1; });
 
-  return {T, standings, thirdsRanked, totalGoals, goalsPerGame, board, allComplete};
+  // Every scheduled game (group + knockout + third place = 104) has a score.
+  // Once true, the tiebreaker display switches from per-game rates to raw totals.
+  const tournamentComplete = gamesPlayed >= matchesTotal();
+  return {T, standings, thirdsRanked, totalGoals, goalsPerGame, board, allComplete, tournamentComplete};
 }
 // FIFA-style: pts, GD, GF (simplified)
 function cmpTeam(a,b){
@@ -514,7 +521,9 @@ function renderLeaderboard(d){
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
-        <div class="detail" style="display:none"><div class="tb-detail">Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · Goals/game actual: <b>${d.goalsPerGame.toFixed(2)}</b></div><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none"><div class="tb-detail">${d.tournamentComplete
+          ? `Goals guess: <b>${p.tiebreaker}</b> · Goals actual: <b>${d.totalGoals}</b>`
+          : `Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · Goals/game actual: <b>${d.goalsPerGame.toFixed(2)}</b>`}</div><div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
@@ -535,7 +544,7 @@ function teamBreakdown(t){
   if(t.place===1&&t.placePts) b.push(`<span class="pos-1">1st = 8</span>`);
   else if(t.place===2&&t.placePts) b.push(`<span class="pos-2">2nd = 4</span>`);
   else if(t.bestThird) b.push(`<span class="pos-3">3rd adv = 2</span>`);
-  t.ko.filter(k=>k.won).forEach(k=>b.push(`<span class="pos-1">${k.stage} W = ${k.pts}</span>`));
+  t.ko.filter(k=>k.won && k.pts>0).forEach(k=>b.push(`<span class="pos-1">${k.stage} W = ${k.pts}</span>`));
   return b.length? b.map(x=>`<span>${x}</span>`).join("") : `<span style="opacity:.5">no points yet</span>`;
 }
 window.toggleRow = id=>{

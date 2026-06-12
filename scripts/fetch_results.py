@@ -4,10 +4,13 @@
 Runs hourly via GitHub Actions. Syncs finished group-stage games into
 results["groups"] and finished knockout games (Round of 32 through the Final)
 into results["ko"]. Scores recorded are regulation plus extra-time goals only;
-the feed carries no penalty-shootout data, so a knockout game that is level
-after extra time cannot have its advancing team determined and fails the run
-rather than guessing. The third-place playoff is intentionally not scored and
-is skipped.
+the feed carries no penalty-shootout data, so a bracket knockout game that is
+level after extra time cannot have its advancing team determined (see the
+shootout handling below). The third-place playoff is also recorded into
+results["ko"], under stage "3P": its goals count toward the tournament total
+and each team's goal points, but it earns no win points (the front end's score
+table does not list that stage) and needs no advancing team, so a level score
+is recorded as-is rather than treated as a pending shootout.
 
 Every successful run writes checked.json {"checked": <UTC now>} as a heartbeat,
 so the page can show when the feed was last read even when nothing changed.
@@ -50,9 +53,17 @@ RESULTS = "results.json"
 CHECKED = "checked.json"
 
 # Stage discriminator is the feed's lowercase "type" field. These five values
-# are the knockout rounds the pool scores. "group" is handled separately;
-# "third" (third-place playoff) is intentionally not scored and skipped.
+# are the knockout rounds whose winner earns advancement points. "group" is
+# handled separately. The third-place playoff is recorded under THIRD_PLACE
+# (below): its goals count toward the tournament total and each team's goal
+# points, but it earns no win points because the front end's score table does
+# not list this stage.
 STAGE = {"r32": "R32", "r16": "R16", "qf": "QF", "sf": "SF", "final": "Final"}
+
+# Stage marker for the third-place playoff. Deliberately not a key in the front
+# end's SCORE.ko table, so the advancing team gets zero win points; only the
+# goals scored in it count. Kept out of the bracket render as well.
+THIRD_PLACE = "3P"
 
 # Feed spellings that accent/punctuation-insensitive matching alone cannot
 # reconcile to the pool's canonical names, applied as an explicit override on
@@ -163,19 +174,18 @@ def main():
         home_raw = game.get("home_team_name_en")
         away_raw = game.get("away_team_name_en")
 
-        # Third-place playoff is intentionally not scored. Match common label
-        # variants, not just the exact string "third".
-        if gtype_norm in {"third", "3rd", "thirdplace", "bronze"}:
-            continue
-
+        # Detect the third-place playoff across common label variants, not just
+        # the exact string "third". It is recorded (goals count) but earns no
+        # win points; see THIRD_PLACE above.
+        is_third = gtype_norm in {"third", "3rd", "thirdplace", "bronze"}
         is_group = gtype == "group"
-        if not is_group and gtype not in STAGE:
+        if not is_group and not is_third and gtype not in STAGE:
             fail(
                 f"Finished knockout game with unrecognized stage type {gtype!r} "
                 f"(group={game.get('group')!r}, id={game.get('id')!r}); "
                 f"cannot map to a scoring stage"
             )
-        stage = "group" if is_group else STAGE[gtype]
+        stage = THIRD_PLACE if is_third else ("group" if is_group else STAGE[gtype])
 
         home = resolve(home_raw)
         away = resolve(away_raw)
@@ -198,6 +208,12 @@ def main():
             key = frozenset((home, away))
             group_scores[key] = {home: hs, away: as_}
             group_labels[key] = f"{home} vs {away}"
+        elif is_third:
+            # Third-place playoff: no advancing team and no win points, so a
+            # level score (decided on penalties) is fine to record as-is. The
+            # goals still count toward the tournament total and each team's goal
+            # points. Stored under THIRD_PLACE, which carries zero win points.
+            ko_games.append((stage, home, away, hs, as_))
         else:
             if hs == as_:
                 # Level after extra time means a penalty shootout, which the
