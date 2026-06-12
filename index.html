@@ -654,8 +654,8 @@ function renderAbout(d){
       <div class="note">Each player drafted 6 teams: 2 from Pot 1, 2 from Pot 2, 1 from Pot 3, 1 from Pot 4. Picks locked at the opening whistle, Thursday June 11, 2026.</div>
     </div>
     <div class="panel"><h2>Live results feed</h2>
-      <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · scores last changed <b>${fmtUpdated()}</b>.
-      A GitHub Action checks the results feed every few minutes and commits <code>results.json</code> only when a score changes, so the time above is the last actual change, not the last check. This page reloads that file every 3 minutes and shows results read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next reload.</div>
+      <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · scores last changed <b>${fmtUpdated()}</b> · last checked <b><span id="lastChecked">${fmtChecked()}</span></b>.
+      <b>Last checked</b> is when this page most recently pulled <code>results.json</code> (it reloads every 3 minutes). <b>Scores last changed</b> is when a score actually moved: a GitHub Action reads the results feed every few minutes and commits <code>results.json</code> only when something changes, so a recent check with an older change time just means nothing new has happened. Results here are read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next reload.</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
         <label class="btn ghost" style="cursor:pointer">⬆ Import results.json<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
@@ -701,11 +701,20 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 // The scheduled agent commits results.json to the repo; the site reads it.
 // localStorage is only a fallback (offline / opened as a local file).
 const RESULTS_URL = "results.json";
-let dataSource = "local", lastUpdated = null;
+let dataSource = "local", lastUpdated = null, lastChecked = null;
 function fmtUpdated(){
   if(!lastUpdated) return "—";
   const d=new Date(lastUpdated); if(isNaN(d)) return lastUpdated;
   return d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+}
+function fmtChecked(){
+  return lastChecked ? lastChecked.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}) : "—";
+}
+// Update just the "last checked" stamp without a full re-render (polls that
+// find no change still tick this).
+function paintChecked(){
+  const el = document.getElementById("lastChecked");
+  if(el) el.textContent = fmtChecked();
 }
 function fmtKick(iso){
   if(!iso) return "";
@@ -737,7 +746,7 @@ async function fetchResults(){
 async function boot(){
   try{
     const j = await fetchResults();
-    state = j; lastUpdated = j.updated || null; dataSource = "live";
+    state = j; lastUpdated = j.updated || null; lastChecked = new Date(); dataSource = "live";
   }catch(e){ /* fall back to localStorage/default already in `state` */ }
   render();
   setInterval(poll, 180000); // refresh every 3 min to pick up agent updates
@@ -746,8 +755,11 @@ async function poll(){
   if(dataSource!=="live") return;
   try{
     const j = await fetchResults();
+    lastChecked = new Date();
     if(j.updated && j.updated !== lastUpdated){
       state = j; lastUpdated = j.updated; render(); toast("Results updated ✓");
+    }else{
+      paintChecked();
     }
   }catch(e){}
 }
