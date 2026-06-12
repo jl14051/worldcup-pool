@@ -63,6 +63,8 @@
   .rk{font-weight:800; font-size:17px; color:var(--muted)}
   .rk.t1{color:var(--gold)} .rk.t2{color:#cdd6ff} .rk.t3{color:#e3a06b}
   .pname{font-weight:700}
+  .alive{font-size:11px; color:var(--dim); margin-top:2px}
+  .alive.some-out{color:var(--gold)}
   .pemail{font-size:11px; color:var(--dim)}
   .ptot{font-weight:800; font-size:19px; text-align:right}
   .tb{font-size:12px; color:var(--muted); text-align:right}
@@ -380,17 +382,37 @@ function compute(){
     o.total = o.goals*SCORE.goal + o.matchPts + o.placePts + o.koPts;
   });
 
+  // ---- Alive / eliminated ----
+  // A team is out once the group stage is complete and it did not advance, or
+  // once it loses a knockout match. Before the group stage finishes no team is
+  // treated as eliminated on group grounds.
+  const koLosers = new Set();
+  state.ko.forEach(m=>{
+    const sa=num(m.sa), sb=num(m.sb);
+    if(sa===null||sb===null) return;
+    const winner = sa>sb?m.a:sb>sa?m.b:(m.winner||null);
+    if(!winner) return;                  // level with no recorded winner: undetermined
+    koLosers.add(winner===m.a?m.b:m.a);
+  });
+  ALL_TEAMS.forEach(t=>{
+    const o=T[t];
+    const advancing = o.place<=2 || o.bestThird;
+    o.eliminated = koLosers.has(t) || (allComplete && !advancing);
+    o.alive = !o.eliminated;
+  });
+
   // ---- Participants ----
   const board = PARTICIPANTS.map(p=>{
     const teams = p.picks.map(t=>T[t]);
     const total = teams.reduce((s,t)=>s+t.total,0);
-    return {...p, teams, total, tbDiff: Math.abs(p.tiebreaker-totalGoals)};
+    const aliveCount = teams.filter(t=>t.alive).length;
+    return {...p, teams, total, aliveCount, tbDiff: Math.abs(p.tiebreaker-totalGoals)};
   });
   board.sort((a,b)=> b.total-a.total || a.tbDiff-b.tbDiff || a.name.localeCompare(b.name));
   let lastTot=null,lastRank=0;
   board.forEach((p,i)=>{ if(p.total!==lastTot){lastRank=i+1;lastTot=p.total;} p.rank=lastRank; });
 
-  return {T, standings, thirdsRanked, totalGoals, board};
+  return {T, standings, thirdsRanked, totalGoals, board, allComplete};
 }
 // FIFA-style: pts, GD, GF (simplified)
 function cmpTeam(a,b){
@@ -408,6 +430,7 @@ function render(){
 }
 const ownClass = t => OWNED.has(t) ? "owned" : "";
 const ownersOf = t => PARTICIPANTS.filter(p=>p.picks.includes(t)).map(p=>p.name);
+window.showOwners = t => { const o=ownersOf(t); toast(o.length?`${t}: ${o.join(", ")}`:`${t}: not picked by anyone`); };
 
 function renderLeaderboard(d){
   const anyPlayed = d.totalGoals>0 || state.ko.length>0;
@@ -431,7 +454,7 @@ function renderLeaderboard(d){
       <td>
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.rank}</div>
-          <div><div class="pname">${p.name}<span class="caret">▸</span></div></div>
+          <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="ptot">${p.total}</div>
         </div>
         <div class="detail" style="display:none"><div class="tb-detail">Total-goals guess: <b>${p.tiebreaker}</b> · off by <b>${p.tbDiff}</b></div><div class="teamgrid">${teams}</div></div>
@@ -444,9 +467,9 @@ function renderLeaderboard(d){
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Goals so far</div></div>
       <div class="stat"><div class="v">${d.board[0]?d.board[0].total:0}</div><div class="l">Leader points</div></div>
       <div class="stat"><div class="v">${matchesPlayed()}</div><div class="l">Matches entered</div></div>
-      <div class="stat"><div class="v">${closestTb(d)}</div><div class="l">Closest tiebreaker</div></div>
+      <div class="stat"><div class="v">${closestTb(d)}</div><div class="l">Closest tiebreaker${d.allComplete?'':' (projected)'}</div></div>
     </div>
-    ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet — tournament kicks off today.<br>Head to <b>Enter Results</b> to start scoring. Standings update live.</div>`}
+    ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet. The tournament kicks off today; group scores sync automatically as matches finish, and standings update live.</div>`}
     <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
@@ -473,12 +496,12 @@ function renderStandings(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td class="${ownClass(t.team)}">${t.team}</td>
+        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}')" style="cursor:pointer">${t.team}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
       </tr>`).join("");
-    return `<div class="gcard"><h3>Group ${g} <span class="gd">click teams = owned ●</span></h3>
+    return `<div class="gcard"><h3>Group ${g} <span class="gd">owned ● · tap a team for owners</span></h3>
       <table class="stbl"><thead><tr><th></th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }).join("");
@@ -498,7 +521,7 @@ function renderStandings(d){
     ${ko}`;
 }
 function renderKoBracket(d){
-  if(!state.ko.length) return `<div class="panel"><h2>Knockout Bracket</h2><div class="note">No knockout matches entered yet. Add them under <b>Enter Results</b> once the group stage finishes.</div></div>`;
+  if(!state.ko.length) return `<div class="panel"><h2>Knockout Bracket</h2><div class="note">Knockout matchups appear here automatically once the group stage ends and the bracket is set.</div></div>`;
   const byStage = KO_STAGES.map(([s,label])=>{
     const ms = state.ko.filter(m=>m.stage===s);
     if(!ms.length) return "";
@@ -568,7 +591,7 @@ function renderAbout(d){
     </div>
     <div class="panel"><h2>Live results feed</h2>
       <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · last updated <b>${fmtUpdated()}</b>.
-      An hourly scheduled agent web-searches finished matches and commits <code>results.json</code> to the repo; this page polls it every 3 minutes and shows results read-only. The tools below are for admin use — <b>Export</b> downloads the current snapshot; <b>Import</b>/<b>Reset</b> override locally until the next poll.</div>
+      An hourly GitHub Action pulls finished match scores from a results feed and commits <code>results.json</code> to the repo; this page polls that file every 3 minutes and shows results read-only. The tools below are for admin use: <b>Export</b> downloads the current snapshot, and <b>Import</b>/<b>Reset</b> override locally until the next poll.</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
         <label class="btn ghost" style="cursor:pointer">⬆ Import results.json<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
