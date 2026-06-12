@@ -496,8 +496,8 @@ function renderLeaderboard(d){
 
   $("#leaderboard").innerHTML = `
     <div class="stat-strip">
-      <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Goals so far</div></div>
       <div class="stat"><div class="v">${matchesPlayed()} / ${matchesTotal()}</div><div class="l">Matches played</div></div>
+      <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Goals so far</div></div>
     </div>
     ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet. The tournament kicks off today; group scores sync automatically as matches finish, and standings update live.</div>`}
     <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span></th></tr></thead>
