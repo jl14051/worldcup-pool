@@ -244,9 +244,10 @@ const ALL_TEAMS = Object.values(GROUPS).flat().sort();
 
 const SCORE = { goal:1, win:3, draw:1, first:8, second:4, bestThird:2,
                 ko:{R32:5, R16:8, QF:13, SF:21, Final:34} };
-// 2026 World Cup match count, used to turn each player's full-tournament
+// 2026 World Cup scored-match count: group (72) + knockout (31), excluding the
+// unscored third-place playoff. Used to turn each player's full-tournament
 // total-goals guess into a per-game rate for the tiebreaker.
-const TOURNAMENT_GAMES = 104;
+const TOURNAMENT_GAMES = 103;
 const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfinal"],
                    ["SF","Semifinal"],["Final","Final"]];
 const KO_LABEL = Object.fromEntries(KO_STAGES);
@@ -734,7 +735,8 @@ function matchesPlayed(){
     + state.ko.filter(m=>num(m.sa)!==null&&num(m.sb)!==null).length;
 }
 function matchesTotal(){
-  return Object.values(state.groups).flat().length + state.ko.length;
+  // group (72) + knockout (31); the unscored third-place playoff is excluded.
+  return TOURNAMENT_GAMES;
 }
 
 let tT;
