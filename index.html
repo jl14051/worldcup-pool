@@ -144,7 +144,7 @@
   .matchrow input{width:100%; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:7px; text-align:center; font-size:15px; font-weight:700}
   .matchrow input:focus{outline:none; border-color:var(--accent)}
   .vs{color:var(--dim); text-align:center; font-size:12px}
-  .tname{font-weight:600; font-size:14px}
+  .tname{font-weight:600; font-size:14px; cursor:pointer}
   .tname.owned{color:var(--accent)}
 
   .ko-add{display:grid; grid-template-columns:120px 1fr 60px 18px 60px 1fr auto; gap:8px; align-items:center}
@@ -646,7 +646,7 @@ function renderResults(){
     </div>`;
   const body = resultsView==='date' ? resultsByDate() : resultsByGroup();
   $("#results").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. Owned teams are highlighted.</div>
+    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. <span class="owned">Owned teams</span> are highlighted in purple; tap any team to see who picked it.</div>
     ${toggle}
     ${body}`;
 }
@@ -662,9 +662,9 @@ function resultsByGroup(){
     const ms = state.groups[g];
     const playedN = ms.filter(played).length;
     const rows = ms.map(m=>`<div class="rmatch ${played(m)?'done':''}">
-        <div class="tname tA ${ownClass(m.a)}">${m.a}</div>
+        <div class="tname tA ${ownClass(m.a)}" onclick="showOwners('${m.a}')">${m.a}</div>
         ${matchCenter(m, fmtKick(m.kickoff))}
-        <div class="tname tB ${ownClass(m.b)}">${m.b}</div>
+        <div class="tname tB ${ownClass(m.b)}" onclick="showOwners('${m.b}')">${m.b}</div>
       </div>`).join("");
     return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
   }).join("");
@@ -672,7 +672,7 @@ function resultsByGroup(){
   const koList = state.ko.map(m=>{
     const done=played(m), tie=done&&num(m.sa)===num(m.sb);
     const winner = done ? koWinner(m) : null;
-    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}">${team}</span>`;
+    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}" onclick="showOwners('${team}')" style="cursor:pointer">${team}</span>`;
     // pa/pb present -> koScore already shows the shootout numbers. A level game
     // with only a recorded winner gets a worded note instead of invented numbers.
     const pensNote = (tie && num(m.pa)===null && num(m.pb)===null && m.winner)
@@ -728,9 +728,9 @@ function dateRow(m, pendingText){
   const clsB = w ? (w===m.b?' win':' lose') : '';
   const center = `<span class="rcenter">${matchCenter(m, pendingText)}<span class="rtag">${m.tag}</span></span>`;
   return `<div class="rmatch ${played(m)?'done':''}">
-    <div class="tname tA ${ownClass(m.a)}${clsA}">${m.a}</div>
+    <div class="tname tA ${ownClass(m.a)}${clsA}" onclick="showOwners('${m.a}')">${m.a}</div>
     ${center}
-    <div class="tname tB ${ownClass(m.b)}${clsB}">${m.b}</div>
+    <div class="tname tB ${ownClass(m.b)}${clsB}" onclick="showOwners('${m.b}')">${m.b}</div>
   </div>`;
 }
 
