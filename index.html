@@ -63,8 +63,13 @@
   .lb{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden}
   .lb th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); padding:10px 14px; background:var(--bg2)}
   .lb td{padding:0; border-top:1px solid var(--line)}
-  .row-main{display:grid; grid-template-columns:54px 1fr 90px; align-items:center; padding:12px 14px; cursor:pointer; transition:.12s}
+  .row-main{display:grid; grid-template-columns:54px minmax(0,1fr) auto 90px; column-gap:12px; align-items:center; padding:12px 14px; cursor:pointer; transition:.12s}
   .row-main:hover{background:var(--card2)}
+  .games{text-align:right; line-height:1.2; white-space:nowrap}
+  .games .g-num{font-weight:700; font-size:14px; color:var(--txt)}
+  .games .g-den{color:var(--dim); font-weight:600; font-size:12px}
+  .games .g-lbl{display:block; font-size:11px; color:var(--dim); margin-top:2px}
+  .games .g-ko{color:var(--accent); font-weight:600}
   .rk{font-weight:800; font-size:17px; color:var(--muted)}
   .rk.t1{color:var(--gold)} .rk.t2{color:#cdd6ff} .rk.t3{color:#e3a06b}
   .pname{font-weight:700}
@@ -198,7 +203,9 @@
     .pod .nm{font-size:12px; margin-top:2px}
     .pod .pts{font-size:18px; margin-top:4px}
     .pod .medal{font-size:15px}
-    .row-main{grid-template-columns:40px 1fr 70px; }
+    .row-main{grid-template-columns:36px minmax(0,1fr) auto 60px; column-gap:8px}
+    .games .g-num{font-size:13px}
+    .games .g-lbl{font-size:10px}
   }
 </style>
 </head>
@@ -499,7 +506,12 @@ function compute(){
     const total = teams.reduce((s,t)=>s+t.total,0);
     const aliveCount = teams.filter(t=>t.alive).length;
     const guessPerGame = p.tiebreaker / TOURNAMENT_GAMES;
-    return {...p, teams, total, aliveCount, guessPerGame, tbDiff: Math.abs(guessPerGame-goalsPerGame)};
+    // Game counters: group games played by this player's teams (each team plays
+    // 3, so a full roster is teams*3), plus a running count of knockout games.
+    const grpPlayed = teams.reduce((s,t)=>s+t.played,0);
+    const grpTotal = teams.length*3;
+    const koGames = teams.reduce((s,t)=>s+t.ko.length,0);
+    return {...p, teams, total, aliveCount, guessPerGame, grpPlayed, grpTotal, koGames, tbDiff: Math.abs(guessPerGame-goalsPerGame)};
   });
   board.sort((a,b)=> b.total-a.total || a.tbDiff-b.tbDiff || a.name.localeCompare(b.name));
   // Standard competition ranking. Two players share a rank only when they have
@@ -594,6 +606,7 @@ function renderLeaderboard(d){
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
           <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
+          <div class="games"><span class="g-num">${p.grpPlayed}<span class="g-den">/${p.grpTotal}</span></span><span class="g-lbl">group${p.koGames?` · <span class="g-ko">${p.koGames} KO</span>`:''}</span></div>
           <div class="ptot">${p.total}</div>
         </div>
         <div class="detail" style="display:none"><div class="tb-detail">${d.tournamentComplete
