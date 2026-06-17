@@ -151,6 +151,11 @@
   .segbtn.active{background:linear-gradient(180deg,var(--accent),#5a3fd6); color:#fff}
   .daygroup{background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:12px; overflow:hidden}
   .dayhdr{padding:12px 14px; font-weight:700; font-size:14px; background:var(--bg2); display:flex; justify-content:space-between; align-items:center}
+  summary.dayhdr{cursor:pointer; list-style:none; user-select:none}
+  summary.dayhdr::-webkit-details-marker{display:none}
+  .dayhdr .dlbl{display:flex; align-items:center; gap:8px}
+  .dayhdr .dcaret{color:var(--dim); font-size:11px; transition:transform .15s}
+  .daygroup[open] .dayhdr .dcaret{transform:rotate(90deg)}
   .dayhdr.d-today{color:var(--accent)}
   .drel{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 9px; border-radius:999px; background:var(--line); color:var(--muted)}
   .drel.d-today{background:var(--accent); color:#fff}
@@ -781,12 +786,12 @@ function resultsByDate(){
     const relCls = info.rel==="Today"?"d-today":info.rel==="Tomorrow"?"d-tom":"";
     const rel = info.rel?`<span class="drel ${relCls}">${info.rel}</span>`:`<span class="st">${ms.length} game${ms.length>1?'s':''}</span>`;
     const rows = ms.map(m=>dateRow(m, fmtTime(m.kickoff))).join("");
-    return `<div class="daygroup"><div class="dayhdr ${info.rel==='Today'?'d-today':''}">${info.label}${rel}</div>${rows}</div>`;
+    return `<details class="daygroup" open><summary class="dayhdr ${info.rel==='Today'?'d-today':''}"><span class="dlbl"><span class="dcaret">▸</span>${info.label}</span>${rel}</summary>${rows}</details>`;
   };
 
   const dayHtml = days.map(dayBlock).join("");
   const koHtml = undated.length
-    ? `<div class="daygroup"><div class="dayhdr">Knockout stage <span class="st">date TBD</span></div>${undated.map(m=>dateRow(m,"TBD")).join("")}</div>`
+    ? `<details class="daygroup" open><summary class="dayhdr"><span class="dlbl"><span class="dcaret">▸</span>Knockout stage</span><span class="st">date TBD</span></summary>${undated.map(m=>dateRow(m,"TBD")).join("")}</details>`
     : "";
   return dayHtml + koHtml || `<div class="empty">No fixtures to show.</div>`;
 }
