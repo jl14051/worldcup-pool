@@ -62,17 +62,21 @@
   table{width:100%; border-collapse:collapse}
   .lb{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden}
   .lb th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); padding:10px 14px; background:var(--bg2)}
+  .lb-legend{font-size:11px; font-weight:400; text-transform:none; letter-spacing:normal; color:var(--dim); margin-top:6px; line-height:1.4; white-space:normal; max-width:760px}
   .lb td{padding:0; border-top:1px solid var(--line)}
   .row-main{display:grid; grid-template-columns:54px minmax(0,1fr) auto 90px; column-gap:12px; align-items:center; padding:12px 14px; cursor:pointer; transition:.12s}
   .row-main:hover{background:var(--card2)}
-  .games{text-align:right; line-height:1.2; white-space:nowrap}
-  .games .g-num{font-weight:700; font-size:14px; color:var(--txt)}
+  .games{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:flex-end; column-gap:14px; row-gap:2px; line-height:1.2}
+  .games .g-head{font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); white-space:nowrap}
+  .games .g-stat{font-size:11px; color:var(--dim); white-space:nowrap}
+  .games .g-lbl{color:var(--dim)}
+  .games .g-num{font-weight:700; font-size:14px; color:var(--txt); margin-left:4px}
   .games .g-den{color:var(--dim); font-weight:600; font-size:12px}
-  .games .g-lbl{display:block; font-size:11px; color:var(--dim); margin-top:2px}
-  .games .g-ko{color:var(--accent); font-weight:600}
+  .games .g-ko{color:var(--accent)}
   .rk{font-weight:800; font-size:17px; color:var(--muted)}
   .rk.t1{color:var(--gold)} .rk.t2{color:#cdd6ff} .rk.t3{color:#e3a06b}
-  .pname{font-weight:700}
+  .pinfo{min-width:0}
+  .pname{font-weight:700; overflow-wrap:break-word}
   .alive{font-size:11px; color:var(--dim); margin-top:2px}
   .alive.some-out{color:var(--gold)}
   .pemail{font-size:11px; color:var(--dim)}
@@ -88,6 +92,11 @@
   .tcard .tn{font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center}
   .tcard .tg{font-size:11px; color:var(--dim)}
   .tcard .tp{font-weight:800; color:var(--green)}
+  .tcard .tgh{font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); margin-top:6px}
+  .tcard .tgames{font-size:11px; color:var(--dim); margin-top:1px}
+  .tcard .tgames .tg-stat{white-space:nowrap}
+  .tcard .tgames b{color:var(--txt); font-weight:700}
+  .tcard .tgames .tg-ko{color:var(--accent)}
   .brk{font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5}
   .brk span{display:inline-block; background:var(--card2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin:2px 3px 0 0}
   .pos-1{color:var(--gold)} .pos-2{color:#cdd6ff} .pos-3{color:var(--green)} .pos-4{color:var(--red)}
@@ -203,9 +212,15 @@
     .pod .nm{font-size:12px; margin-top:2px}
     .pod .pts{font-size:18px; margin-top:4px}
     .pod .medal{font-size:15px}
-    .row-main{grid-template-columns:36px minmax(0,1fr) auto 60px; column-gap:8px}
+    .row-main{grid-template-columns:36px minmax(0,1fr) 60px;
+      grid-template-areas:"rank name pts" "rank games games"; column-gap:8px; row-gap:6px}
+    .row-main .rk{grid-area:rank}
+    .row-main .pinfo{grid-area:name}
+    .row-main .ptot{grid-area:pts}
+    .games{grid-area:games; justify-content:flex-start; column-gap:12px}
     .games .g-num{font-size:13px}
-    .games .g-lbl{font-size:10px}
+    .games .g-stat{font-size:11px}
+    .games .g-head{font-size:10px}
   }
 </style>
 </head>
@@ -598,6 +613,8 @@ function renderLeaderboard(d){
       <div class="tcard">
         <div class="tn"><span class="${ownClass(t.team)}">${t.team}</span><span class="tp">${t.total}</span></div>
         <div class="tg">Group ${t.group} · ${t.placeLabel||"—"}${t.bestThird?" (advanced 3rd)":""}</div>
+        <div class="tgh">Games played</div>
+        <div class="tgames"><span class="tg-stat">Group <b>${t.played}</b> of 3</span> · <span class="tg-stat">Knockout <b class="tg-ko">${t.ko.length}</b></span></div>
         <div class="brk">${teamBreakdown(t)}</div>
       </div>`).join("");
     return `
@@ -605,8 +622,8 @@ function renderLeaderboard(d){
       <td>
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
-          <div><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
-          <div class="games"><span class="g-num">${p.grpPlayed}<span class="g-den">/${p.grpTotal}</span></span><span class="g-lbl">group${p.koGames?` · <span class="g-ko">${p.koGames} KO</span>`:''}</span></div>
+          <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount<p.teams.length?'some-out':''}">${p.aliveCount}/${p.teams.length} alive</div></div>
+          <div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>
           <div class="ptot">${p.total}</div>
         </div>
         <div class="detail" style="display:none"><div class="tb-detail">${d.tournamentComplete
@@ -622,7 +639,7 @@ function renderLeaderboard(d){
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Total goals scored</div></div>
     </div>
     ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet. The tournament kicks off today; group scores sync automatically as matches finish, and standings update live.</div>`}
-    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span></th></tr></thead>
+    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 function teamBreakdown(t){
