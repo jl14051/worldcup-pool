@@ -417,6 +417,74 @@ function lockedPos(g, team, basePts){
   return pos;
 }
 
+// ---- FIFA 2026 group tiebreakers ----
+// Order WITHIN a group: points; then, among teams level on points, head-to-head
+// points / goal difference / goals; then overall goal difference / goals. Fair
+// play and FIFA ranking are not modelled, so anything still level is treated as
+// a genuine tie. matches: [{a,b,sa,sb}] with numeric scores.
+function miniTable(matches, teams){
+  const st={}; teams.forEach(t=>st[t]={pts:0,gf:0,ga:0});
+  matches.forEach(m=>{
+    if(!st[m.a]||!st[m.b]) return;
+    st[m.a].gf+=m.sa; st[m.a].ga+=m.sb; st[m.b].gf+=m.sb; st[m.b].ga+=m.sa;
+    if(m.sa>m.sb) st[m.a].pts+=SCORE.win;
+    else if(m.sb>m.sa) st[m.b].pts+=SCORE.win;
+    else { st[m.a].pts+=SCORE.draw; st[m.b].pts+=SCORE.draw; }
+  });
+  teams.forEach(t=>st[t].gd=st[t].gf-st[t].ga);
+  return st;
+}
+// Finishing order as clusters: each cluster is the teams that share a rank
+// (length 1 normally; >1 only on a true unresolved tie). Clusters are ordered
+// best to worst.
+function rankClusters(matches, teams){
+  const st=miniTable(matches, teams);
+  const order=teams.slice().sort((x,y)=> st[y].pts-st[x].pts);
+  const clusters=[]; let i=0;
+  while(i<order.length){
+    let j=i; while(j+1<order.length && st[order[j+1]].pts===st[order[i]].pts) j++;
+    let block=order.slice(i,j+1);
+    if(block.length>1){
+      const set=new Set(block);
+      const h=miniTable(matches.filter(m=>set.has(m.a)&&set.has(m.b)), block);
+      const key=t=>[h[t].pts,h[t].gd,h[t].gf,st[t].gd,st[t].gf];
+      block.sort((x,y)=>{ const kx=key(x),ky=key(y); for(let z=0;z<kx.length;z++){ if(ky[z]!==kx[z]) return ky[z]-kx[z]; } return 0; });
+      let k=0;
+      while(k<block.length){
+        let l=k; const kk=key(block[k]).join(",");
+        while(l+1<block.length && key(block[l+1]).join(",")===kk) l++;
+        clusters.push(block.slice(k,l+1)); k=l+1;
+      }
+    } else clusters.push(block);
+    i=j+1;
+  }
+  return clusters;
+}
+// For a group, the set of finishing positions (1..4) still possible for each
+// team across every remaining result. Each unplayed match is enumerated over
+// scorelines whose margins bracket the goal-difference / goals tiebreakers (win
+// by one or by a landslide, scoreless or high-scoring draw), so the set is sound.
+function groupPositions(g){
+  const ms=state.groups[g], teams=GROUPS[g];
+  const base=ms.filter(played).map(m=>({a:m.a,b:m.b,sa:num(m.sa),sb:num(m.sb)}));
+  const rem=ms.filter(m=>!played(m));
+  const poss={}; teams.forEach(t=>poss[t]=new Set());
+  const add=games=>{
+    let pos=0;
+    rankClusters(games, teams).forEach(c=>{ c.forEach(t=>{ for(let z=1;z<=c.length;z++) poss[t].add(pos+z); }); pos+=c.length; });
+  };
+  if(rem.length===0){ add(base); return poss; }
+  if(rem.length>4){ teams.forEach(t=>poss[t]=new Set([1,2,3,4])); return poss; } // too open to bound
+  const LINES=[[1,0],[20,0],[0,0],[10,10],[0,1],[0,20]];
+  const total=Math.pow(LINES.length, rem.length);
+  for(let n=0;n<total;n++){
+    let x=n; const games=base.slice();
+    for(const m of rem){ const sc=LINES[x%LINES.length]; x=Math.floor(x/LINES.length); games.push({a:m.a,b:m.b,sa:sc[0],sb:sc[1]}); }
+    add(games);
+  }
+  return poss;
+}
+
 /* ========================== SCORING ENGINE ========================== */
 function compute(){
   // team -> accumulator
@@ -449,19 +517,23 @@ function compute(){
   const allComplete = Object.values(complete).every(Boolean);
   const standings = {}; // g -> ordered array of team objects
   const thirds = [];
+  const groupPoss = {}; // g -> { team: Set of still-possible finishing positions }
   for(const g of Object.keys(GROUPS)){
-    const arr = GROUPS[g].map(t=>T[t]);
-    arr.sort(cmpTeam);
+    // Order by the FIFA 2026 tiebreakers (head-to-head before overall GD) using
+    // the matches played so far.
+    const baseMs = state.groups[g].filter(played).map(m=>({a:m.a,b:m.b,sa:num(m.sa),sb:num(m.sb)}));
+    const arr = rankClusters(baseMs, GROUPS[g]).flat().map(t=>T[t]);
+    groupPoss[g] = groupPositions(g);
     standings[g]=arr;
     const basePts={}; GROUPS[g].forEach(t=>basePts[t]=T[t].matchPts);
     arr.forEach((t,i)=>{
       t.place=i+1;
       t.placeLabel=["1st","2nd","3rd","4th"][i];
-      // Award 1st/2nd when the group is complete OR the position is locked early.
+      // Award 1st/2nd placement points when the group is complete OR the exact
+      // position is locked on points alone. (Advancement status below uses the
+      // fuller tiebreaker analysis; placement points stay on this conservative
+      // rule so leaderboard totals never move on a goal-difference swing.)
       const pos = complete[g] ? i+1 : lockedPos(g, t.team, basePts);
-      // Mathematically locked finishing position (1..4) when known, else null.
-      // Used below for "secured advancement" and "cannot advance" signals.
-      t.lockedPos = pos;
       if(pos===1){ t.placePts=SCORE.first; t.locked=!complete[g]; }
       else if(pos===2){ t.placePts=SCORE.second; t.locked=!complete[g]; }
     });
@@ -526,21 +598,19 @@ function compute(){
 
   ALL_TEAMS.forEach(t=>{
     const o=T[t];
+    const positions=[...(groupPoss[o.group][t]||new Set([1,2,3,4]))];
+    const securedTop2 = positions.every(p=>p<=2);   // top-2 in every remaining scenario
+    const lockedLast  = positions.every(p=>p===4);  // cannot even finish 3rd
     const advancing = o.place<=2 || o.bestThird;
-    // A team is OUT as soon as it cannot reach the knockouts, even mid-group:
-    //   - a recorded knockout loss (from the set above), OR
-    //   - mathematically stuck in last (3rd is the lowest spot that can qualify),
-    //     either locked into 4th early or finishing 4th once its group is done, OR
-    //   - the group stage is fully resolved and it is not advancing.
-    const cannotAdvance = o.lockedPos===4 || (complete[o.group] && o.place===4);
-    o.eliminated = eliminated.has(t) || cannotAdvance || (allComplete && !advancing);
+    // OUT: a recorded knockout loss; OR locked into last, so there is no best-third
+    // hope either; OR the group stage is fully resolved and the team is not
+    // advancing. All position tests apply the FIFA 2026 tiebreakers.
+    o.eliminated = eliminated.has(t) || lockedLast || (allComplete && !advancing);
     o.alive = !o.eliminated;
-    // THROUGH = advancement secured (not merely sitting in a qualifying slot):
-    //   already in the bracket, OR top-2 locked / final, OR a confirmed best third.
-    // Top-2 is independent of other groups, so it can clinch early; best-third
-    // depends on all 12 groups and is only known once they all finish.
-    const clinchedTop2 = koTeams.has(t) || o.lockedPos===1 || o.lockedPos===2 || (complete[o.group] && o.place<=2);
-    o.through = !o.eliminated && (clinchedTop2 || o.bestThird);
+    // THROUGH = a knockout spot is secured (not merely a current qualifying slot):
+    //   already in the bracket, OR top-2 guaranteed in every remaining scenario,
+    //   OR a confirmed best third (known only once all groups finish).
+    o.through = !o.eliminated && (koTeams.has(t) || securedTop2 || o.bestThird);
     o.status = o.eliminated ? "out" : (o.through ? "through" : "contention");
   });
 
