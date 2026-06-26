@@ -97,6 +97,10 @@
   .tcard .tgames .tg-stat{white-space:nowrap}
   .tcard .tgames b{color:var(--txt); font-weight:700}
   .tcard .tgames .tg-ko{color:var(--accent)}
+  .tcard .tstatus{display:inline-block; font-size:10px; font-weight:700; padding:1px 8px; border-radius:20px; margin-top:5px; border:1px solid transparent}
+  .ts-through{color:var(--green); background:rgba(39,224,138,.12); border-color:rgba(39,224,138,.4)!important}
+  .ts-out{color:var(--red); background:rgba(255,93,115,.10); border-color:rgba(255,93,115,.35)!important}
+  .ts-contention{color:var(--muted); background:var(--card2); border-color:var(--line)!important}
   .brk{font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5}
   .brk span{display:inline-block; background:var(--card2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin:2px 3px 0 0}
   .pos-1{color:var(--gold)} .pos-2{color:#cdd6ff} .pos-3{color:var(--green)} .pos-4{color:var(--red)}
@@ -119,6 +123,7 @@
   .owned{color:var(--accent)}
   .owned::after{content:"●"; font-size:8px; vertical-align:middle; margin-left:4px; color:var(--accent)}
   .pill{display:inline-block; font-size:10px; padding:2px 7px; border-radius:20px; background:var(--card2); border:1px solid var(--line); color:var(--muted)}
+  .qbadge{display:inline-block; font-size:9px; font-weight:700; padding:1px 6px; border-radius:20px; margin-left:6px; color:var(--green); background:rgba(39,224,138,.12); border:1px solid rgba(39,224,138,.4); white-space:nowrap; vertical-align:middle; cursor:default}
 
   .panel{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px}
   .panel h2{margin:0 0 10px; font-size:16px}
@@ -450,6 +455,9 @@ function compute(){
       t.placeLabel=["1st","2nd","3rd","4th"][i];
       // Award 1st/2nd when the group is complete OR the position is locked early.
       const pos = complete[g] ? i+1 : lockedPos(g, t.team, basePts);
+      // Mathematically locked finishing position (1..4) when known, else null.
+      // Used below for "secured advancement" and "cannot advance" signals.
+      t.lockedPos = pos;
       if(pos===1){ t.placePts=SCORE.first; t.locked=!complete[g]; }
       else if(pos===2){ t.placePts=SCORE.second; t.locked=!complete[g]; }
     });
@@ -507,11 +515,29 @@ function compute(){
     if(!winner) return;                  // undetermined: eliminate no one yet
     eliminated.add(winner===m.a?m.b:m.a);
   });
+  // Teams that appear anywhere in the knockout bracket have, by definition,
+  // advanced out of their group.
+  const koTeams = new Set();
+  state.ko.forEach(m=>{ koTeams.add(m.a); koTeams.add(m.b); });
+
   ALL_TEAMS.forEach(t=>{
     const o=T[t];
     const advancing = o.place<=2 || o.bestThird;
-    o.eliminated = eliminated.has(t) || (allComplete && !advancing);
+    // A team is OUT as soon as it cannot reach the knockouts, even mid-group:
+    //   - a recorded knockout loss (from the set above), OR
+    //   - mathematically stuck in last (3rd is the lowest spot that can qualify),
+    //     either locked into 4th early or finishing 4th once its group is done, OR
+    //   - the group stage is fully resolved and it is not advancing.
+    const cannotAdvance = o.lockedPos===4 || (complete[o.group] && o.place===4);
+    o.eliminated = eliminated.has(t) || cannotAdvance || (allComplete && !advancing);
     o.alive = !o.eliminated;
+    // THROUGH = advancement secured (not merely sitting in a qualifying slot):
+    //   already in the bracket, OR top-2 locked / final, OR a confirmed best third.
+    // Top-2 is independent of other groups, so it can clinch early; best-third
+    // depends on all 12 groups and is only known once they all finish.
+    const clinchedTop2 = koTeams.has(t) || o.lockedPos===1 || o.lockedPos===2 || (complete[o.group] && o.place<=2);
+    o.through = !o.eliminated && (clinchedTop2 || o.bestThird);
+    o.status = o.eliminated ? "out" : (o.through ? "through" : "contention");
   });
 
   // ---- Participants ----
@@ -618,6 +644,7 @@ function renderLeaderboard(d){
       <div class="tcard">
         <div class="tn"><span class="${ownClass(t.team)}">${t.team}</span><span class="tp">${t.total}</span></div>
         <div class="tg">Group ${t.group} · ${t.placeLabel||"—"}${t.bestThird?" (advanced 3rd)":""}</div>
+        <div class="tstatus ts-${t.status}">${t.status==='through'?'✓ Through to knockouts':t.status==='out'?'Eliminated':'In contention'}</div>
         <div class="tgh">Games played</div>
         <div class="tgames"><span class="tg-stat">Group <b>${t.played}</b> of 3</span> · <span class="tg-stat">Knockout <b class="tg-ko">${t.ko.length}</b></span></div>
         <div class="brk">${teamBreakdown(t)}</div>
@@ -670,7 +697,7 @@ function renderStandings(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}</td>
+        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}${t.through?' <span class="qbadge">✓ Through</span>':''}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
@@ -688,7 +715,7 @@ function renderStandings(d){
 
   const ko = renderKoBracket(d);
   $("#standings").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). Standings &amp; placement are <b>provisional</b> until all group matches are entered. <span class="owned">Owned teams</span> are highlighted.</div>
+    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). Standings &amp; placement are <b>provisional</b> until all group matches are entered; a <span class="qbadge">✓ Through</span> tag means a team has mathematically secured its knockout spot. <span class="owned">Owned teams</span> are highlighted.</div>
     <div class="grid12">${cards}</div>
     <div class="panel"><h2>Best Third-Placed Teams <span class="pill">top 8 advance</span></h2>
       <div class="third-list">${thirdHtml}</div></div>
