@@ -78,6 +78,8 @@
   .pinfo{min-width:0}
   .pname{font-weight:700; overflow-wrap:break-word}
   .alive{font-size:11px; color:var(--dim); margin-top:2px}
+  .alive.alive-on{color:#5cb389}
+  .alive.alive-out{color:#cf6b7a}
   .pemail{font-size:11px; color:var(--dim)}
   .ptot{font-weight:800; font-size:19px; text-align:right}
   .tb{font-size:12px; color:var(--muted); text-align:right}
@@ -656,7 +658,7 @@ function renderLeaderboard(d){
       <td>
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
-          <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive">${p.aliveCount}/${p.teams.length} alive</div></div>
+          <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount===0?'alive-out':'alive-on'}">${p.aliveCount}/${p.teams.length} alive</div></div>
           <div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>
           <div class="ptot">${p.total}</div>
         </div>
