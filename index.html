@@ -699,7 +699,7 @@ function renderStandings(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}${t.through?' <span class="qstat qm-through" title="Secured a knockout spot">✓</span>':t.eliminated?' <span class="qstat qm-out" title="Eliminated">✗</span>':''}</td>
+        <td onclick="showOwners('${t.team}', event)" style="cursor:pointer"><span class="${ownClass(t.team)}">${t.team}</span>${t.through?' <span class="qstat qm-through" title="Secured a knockout spot">✓</span>':t.eliminated?' <span class="qstat qm-out" title="Eliminated">✗</span>':''}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
