@@ -123,7 +123,10 @@
   .owned{color:var(--accent)}
   .owned::after{content:"●"; font-size:8px; vertical-align:middle; margin-left:4px; color:var(--accent)}
   .pill{display:inline-block; font-size:10px; padding:2px 7px; border-radius:20px; background:var(--card2); border:1px solid var(--line); color:var(--muted)}
-  .qbadge{display:inline-block; font-size:9px; font-weight:700; padding:1px 6px; border-radius:20px; margin-left:6px; color:var(--green); background:rgba(39,224,138,.12); border:1px solid rgba(39,224,138,.4); white-space:nowrap; vertical-align:middle; cursor:default}
+  .qstat{font-weight:800; margin-left:6px; vertical-align:middle}
+  .qm-through{color:var(--green)}
+  .qm-out{color:var(--red)}
+  .key{margin-right:12px; white-space:nowrap}
 
   .panel{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px}
   .panel h2{margin:0 0 10px; font-size:16px}
@@ -697,7 +700,7 @@ function renderStandings(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}${t.through?' <span class="qbadge">✓ Through</span>':''}</td>
+        <td class="${ownClass(t.team)}" onclick="showOwners('${t.team}', event)" style="cursor:pointer">${t.team}${t.through?' <span class="qstat qm-through" title="Secured a knockout spot">✓</span>':t.eliminated?' <span class="qstat qm-out" title="Eliminated">✗</span>':''}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
@@ -715,7 +718,7 @@ function renderStandings(d){
 
   const ko = renderKoBracket(d);
   $("#standings").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). Standings &amp; placement are <b>provisional</b> until all group matches are entered; a <span class="qbadge">✓ Through</span> tag means a team has mathematically secured its knockout spot. <span class="owned">Owned teams</span> are highlighted.</div>
+    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). <span class="key"><span class="qstat qm-through">✓</span> secured a knockout spot</span><span class="key"><span class="qstat qm-out">✗</span> eliminated</span>Standings &amp; placement are <b>provisional</b> until all group matches are entered. <span class="owned">Owned teams</span> are highlighted.</div>
     <div class="grid12">${cards}</div>
     <div class="panel"><h2>Best Third-Placed Teams <span class="pill">top 8 advance</span></h2>
       <div class="third-list">${thirdHtml}</div></div>
