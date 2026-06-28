@@ -210,6 +210,8 @@
   .bpen{font-size:10px; color:var(--muted); margin-left:2px; font-weight:600}
   .bmeta{font-size:10px; color:var(--dim); padding:4px 10px; border-top:1px solid var(--line); background:rgba(0,0,0,.14); line-height:1.4}
   .bthird-h{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); text-align:center; font-weight:700; margin:18px 0 8px}
+  .bcol-body-final{justify-content:flex-start; gap:0}
+  .bfinal-center{flex:1; display:flex; flex-direction:column; justify-content:center}
 
   .note{font-size:12px; color:var(--muted); line-height:1.6}
   .rules{font-size:13px; line-height:1.8}
@@ -946,11 +948,16 @@ function renderKoBracket(d){
       <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)} · ${m.venue}</div></div>`;
   };
   const cols=KO_COLUMNS.map(([label,nums])=>{
-    // The third-place playoff lives at the foot of the Final column.
-    const body = label==="Final"
-      ? `<div class="bfinalwrap">${nums.map(card).join("")}<div class="bthird-h">Third-Place Playoff</div>${card(103)}</div>`
-      : nums.map(card).join("");
-    return `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${body}</div></div>`;
+    // Final column: the Final stays centered as the apex; the third-place playoff
+    // is pinned to the bottom, level with the last Round of 32 tile.
+    if(label==="Final"){
+      return `<div class="bcol"><div class="bcol-h">${label}</div>
+        <div class="bcol-body bcol-body-final">
+          <div class="bfinal-center">${nums.map(card).join("")}</div>
+          <div class="bthird-block"><div class="bthird-h">Third-Place Playoff</div>${card(103)}</div>
+        </div></div>`;
+    }
+    return `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`;
   }).join("");
   return `<div class="panel"><h2>Knockout Bracket</h2>
     <div class="note" style="margin:0 0 10px">Round of 32 matchups are set from the final group standings; winners advance as results come in. Scroll sideways to follow the bracket. <span class="owned">Owned teams</span> are highlighted.</div>
