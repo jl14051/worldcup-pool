@@ -166,6 +166,8 @@
   .dayhdr .dcaret{color:var(--dim); font-size:11px; transition:transform .15s}
   .daygroup[open] .dayhdr .dcaret{transform:rotate(90deg)}
   .dayhdr.d-today{color:var(--accent)}
+  .roundbody{padding:12px}
+  .roundbody .ginput:last-child{margin-bottom:0}
   .drel{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 9px; border-radius:999px; background:var(--line); color:var(--muted)}
   .drel.d-today{background:var(--accent); color:#fff}
   .drel.d-tom{background:var(--gold); color:#1a1208}
@@ -267,7 +269,7 @@
     <div class="sub" id="subline">Draft-six-teams office pool · live leaderboard</div>
     <div class="tabs">
       <button class="tab active" data-view="leaderboard">🏆 Leaderboard</button>
-      <button class="tab" data-view="standings">📊 Standings</button>
+      <button class="tab" data-view="standings">📊 Tournament</button>
       <button class="tab" data-view="results">⚽ Results</button>
       <button class="tab" data-view="about">📖 Rules &amp; Data</button>
     </div>
@@ -838,7 +840,19 @@ window.toggleRow = id=>{
   tr.querySelector(".row-main").classList.toggle("expanded",!open);
 };
 
+let standingsView = (()=>{ try{ return localStorage.getItem("standingsView")==="ko"?"ko":"group"; }catch(e){ return "group"; } })();
+window.setStandingsView = v => { standingsView=v; try{ localStorage.setItem("standingsView",v); }catch(e){} renderStandings(); };
+
 function renderStandings(d){
+  d = d || compute();
+  const toggle = `<div class="seg">
+      <button class="segbtn ${standingsView!=='ko'?'active':''}" onclick="setStandingsView('group')">Group stage</button>
+      <button class="segbtn ${standingsView==='ko'?'active':''}" onclick="setStandingsView('ko')">Knockout stage</button>
+    </div>`;
+  const body = standingsView==='ko' ? renderKoBracket(d) : standingsGroups(d);
+  $("#standings").innerHTML = toggle + body;
+}
+function standingsGroups(d){
   const cards = Object.keys(GROUPS).map(g=>{
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
@@ -859,13 +873,11 @@ function renderStandings(d){
       <span>${t.matchPts}p · ${i<8?'IN ✓':'out'}</span>
     </div>`).join("");
 
-  const ko = renderKoBracket(d);
-  $("#standings").innerHTML = `
+  return `
     <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). <span class="key"><span class="qstat qm-through">✓</span> secured a knockout spot</span><span class="key"><span class="qstat qm-out">✗</span> eliminated</span>Standings &amp; placement are <b>provisional</b> until all group matches are entered. <span class="owned">Owned teams</span> are highlighted.</div>
     <div class="grid12">${cards}</div>
     <div class="panel"><h2>Best Third-Placed Teams <span class="pill">top 8 advance</span></h2>
-      <div class="third-list">${thirdHtml}</div></div>
-    ${ko}`;
+      <div class="third-list">${thirdHtml}</div></div>`;
 }
 function shortStage(s){ return s===THIRD_PLACE?"3P":s; }
 function fmtDateShort(date){ const d=new Date(date+"T12:00:00Z"); return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
@@ -941,16 +953,16 @@ function renderKoBracket(d){
     <div class="bthird"><div class="bcol-h">Third-Place Playoff</div>${card(103)}</div></div>`;
 }
 
-let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")||"group"; }catch(e){ return "group"; } })();
+let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")==="date"?"date":"round"; }catch(e){ return "round"; } })();
 window.setResultsView = v => { resultsView=v; try{ localStorage.setItem("resultsView",v); }catch(e){} renderResults(); };
 
 function renderResults(d){
   d = d || compute();
   const toggle = `<div class="seg">
-      <button class="segbtn ${resultsView==='group'?'active':''}" onclick="setResultsView('group')">By group</button>
+      <button class="segbtn ${resultsView!=='date'?'active':''}" onclick="setResultsView('round')">By round</button>
       <button class="segbtn ${resultsView==='date'?'active':''}" onclick="setResultsView('date')">By date</button>
     </div>`;
-  const body = resultsView==='date' ? resultsByDate(d) : resultsByGroup(d);
+  const body = resultsView==='date' ? resultsByDate(d) : resultsByRound(d);
   $("#results").innerHTML = `
     <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. <span class="owned">Owned teams</span> are highlighted in purple; tap any team to see who picked it.</div>
     ${toggle}
@@ -962,40 +974,49 @@ function matchCenter(m, pendingText){
     ? `<span class="rscore">${koScore(m)}</span>`
     : `<span class="rkick">${pendingText}</span>`;
 }
-
-function koLineStr(m){
-  const ga=koGoals(m,m.a), gb=koGoals(m,m.b);
-  const pa=koPensTeam(m,m.a), pb=koPensTeam(m,m.b);
-  return (pa!=null&&pb!=null) ? `${ga} (${pa})–(${pb}) ${gb}` : `${ga}–${gb}`;
+function groupRow(m){
+  return `<div class="rmatch ${played(m)?'done':''}">
+    <div class="tname tA ${ownClass(m.a)}" onclick="showOwners('${m.a}', event)">${m.a}</div>
+    ${matchCenter(m, fmtKick(m.kickoff))}
+    <div class="tname tB ${ownClass(m.b)}" onclick="showOwners('${m.b}', event)">${m.b}</div>
+  </div>`;
 }
-function resultsByGroup(d){
-  const groupForms = Object.keys(GROUPS).map(g=>{
-    const ms = state.groups[g];
-    const playedN = ms.filter(played).length;
-    const rows = ms.map(m=>`<div class="rmatch ${played(m)?'done':''}">
-        <div class="tname tA ${ownClass(m.a)}" onclick="showOwners('${m.a}', event)">${m.a}</div>
-        ${matchCenter(m, fmtKick(m.kickoff))}
-        <div class="tname tB ${ownClass(m.b)}" onclick="showOwners('${m.b}', event)">${m.b}</div>
-      </div>`).join("");
-    return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
-  }).join("");
+// Row-friendly object for a resolved knockout match: scores mapped into schedule
+// (a,b) order, with a caller-chosen tag (the date for the by-round view, the
+// round label for the by-date view).
+function koSynth(km, tag){
+  const o={a:km.a, b:km.b, aLabel:km.aLabel, bLabel:km.bLabel, stage:km.stage, tag,
+    kickoff:km.date+"T18:00:00Z", koDate:true, venue:km.venue, sa:"", sb:""};
+  if(km.played){
+    const aA=km.a===km.ko.a;
+    o.sa=aA?km.ko.sa:km.ko.sb; o.sb=aA?km.ko.sb:km.ko.sa;
+    const pa=num(km.ko.pa), pb=num(km.ko.pb);
+    if(pa!==null&&pb!==null){ o.pa=aA?km.ko.pa:km.ko.pb; o.pb=aA?km.ko.pb:km.ko.pa; }
+    if(km.ko.winner) o.winner=km.ko.winner;
+  }
+  return o;
+}
 
-  const koArr = Object.values(koMatches(d)).sort((a,b)=>a.m-b.m);
-  const koList = koArr.map(m=>{
-    const nm = (team,label)=> team
-      ? `<span class="${ownClass(team)}${m.played?(m.winner===team?' win':' lose'):''}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`
-      : `<span class="tbd">${label}</span>`;
-    const center = m.played ? `<b>${koLineStr(m)}</b>` : `<span class="gd">${fmtDateShort(m.date)}</span>`;
-    return `<div class="ko-item">
-      <span class="stg">${KO_LABEL[m.stage]||m.stage}</span>
-      <span>${nm(m.a,m.aLabel)} ${center} ${nm(m.b,m.bLabel)}</span>
-      <span class="gd">${m.played?(m.winner||'—'):'—'}</span>
-    </div>`;
+// By round: one collapsible section per round, group stage first, then each
+// knockout round in tournament order.
+function resultsByRound(d){
+  const groupBlocks = Object.keys(GROUPS).map(g=>{
+    const ms=state.groups[g], playedN=ms.filter(played).length;
+    return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${ms.map(groupRow).join("")}</details>`;
   }).join("");
+  const groupPlayed = Object.values(state.groups).flat().filter(played).length;
+  const sections = [`<details class="daygroup" open><summary class="dayhdr"><span class="dlbl"><span class="dcaret">▸</span>Group Stage</span><span class="st">${groupPlayed}/72 played</span></summary><div class="roundbody">${groupBlocks}</div></details>`];
 
-  return `<h2 style="font-size:16px;margin:6px 0">Group Stage</h2>
-    ${groupForms}
-    <div class="panel"><h2>Knockout Stage</h2><div style="margin-top:8px">${koList}</div></div>`;
+  const M=koMatches(d);
+  const ROUNDS=[["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfinals"],["SF","Semifinals"],[THIRD_PLACE,"Third-Place Playoff"],["Final","Final"]];
+  ROUNDS.forEach(([st,label])=>{
+    const ms=Object.values(M).filter(m=>m.stage===st).sort((a,b)=>a.m-b.m);
+    if(!ms.length) return;
+    const playedN=ms.filter(m=>m.played).length;
+    const rows=ms.map(km=>dateRow(koSynth(km, fmtDateShort(km.date)))).join("");
+    sections.push(`<details class="daygroup" ${playedN>0?'open':''}><summary class="dayhdr"><span class="dlbl"><span class="dcaret">▸</span>${label}</span><span class="st">${playedN}/${ms.length} played</span></summary>${rows}</details>`);
+  });
+  return sections.join("");
 }
 
 function resultsByDate(d){
@@ -1003,18 +1024,7 @@ function resultsByDate(d){
   for(const [g,ms] of Object.entries(state.groups))
     ms.forEach(m=>items.push({a:m.a, b:m.b, aLabel:m.a, bLabel:m.b, sa:m.sa, sb:m.sb, pa:m.pa, pb:m.pb,
       winner:m.winner, stage:null, tag:"Group "+g, kickoff:m.kickoff}));
-  Object.values(koMatches(d)).forEach(km=>{
-    const o={a:km.a, b:km.b, aLabel:km.aLabel, bLabel:km.bLabel, stage:km.stage, tag:KO_LABEL[km.stage]||km.stage,
-      kickoff:km.date+"T18:00:00Z", koDate:true, venue:km.venue, sa:"", sb:""};
-    if(km.played){
-      const aIsKoA = km.a===km.ko.a;
-      o.sa=aIsKoA?km.ko.sa:km.ko.sb; o.sb=aIsKoA?km.ko.sb:km.ko.sa;
-      const pa=num(km.ko.pa), pb=num(km.ko.pb);
-      if(pa!==null&&pb!==null){ o.pa=aIsKoA?km.ko.pa:km.ko.pb; o.pb=aIsKoA?km.ko.pb:km.ko.pa; }
-      if(km.ko.winner) o.winner=km.ko.winner;
-    }
-    items.push(o);
-  });
+  Object.values(koMatches(d)).forEach(km=>items.push(koSynth(km, KO_LABEL[km.stage]||km.stage)));
   items.sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff));
 
   const days=[], byKey={};
