@@ -208,7 +208,7 @@
   .bteam .owned{color:var(--accent)}
   .bsc{font-weight:800; min-width:14px; text-align:right}
   .bpen{font-size:10px; color:var(--muted); margin-left:2px; font-weight:600}
-  .bmeta{font-size:10px; color:var(--dim); padding:4px 10px; border-top:1px solid var(--line); background:rgba(0,0,0,.14); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bmeta{font-size:10px; color:var(--dim); padding:4px 10px; border-top:1px solid var(--line); background:rgba(0,0,0,.14); line-height:1.4}
   .bthird{max-width:200px; margin-top:16px}
   .bthird .bcol-h{text-align:left}
 
@@ -326,44 +326,45 @@ const THIRD_PLACE = "3P";
 const KO_LABEL = {...Object.fromEntries(KO_STAGES), [THIRD_PLACE]:"Third Place"};
 
 // 2026 knockout schedule and bracket structure (match numbers 73-104), with real
-// dates and host cities. Slot refs resolve to live teams: "Wx"/"Rx"/"3x" = the
-// winner / runner-up / third-placed team of group x; "Mn" = winner of match n;
-// "Ln" = loser of match n. The eight group-winner-vs-third pairings use the FIFA
-// official third-place assignment for the qualifying set B/D/E/F/I/J/K/L
-// (validated against the round-of-32 eligibility rules).
+// kickoff times (UTC) and host cities. Kickoffs are the published US Eastern
+// times converted to UTC (EDT = UTC-4 across the tournament). Slot refs resolve
+// to live teams: "Wx"/"Rx"/"3x" = the winner / runner-up / third-placed team of
+// group x; "Mn" = winner of match n; "Ln" = loser of match n. The eight
+// group-winner-vs-third pairings use the FIFA official third-place assignment for
+// the qualifying set B/D/E/F/I/J/K/L (validated against the R32 eligibility rules).
 const KO_SCHED = [
-  {m:73,stage:"R32",date:"2026-06-28",venue:"Inglewood",A:"RA",B:"RB"},
-  {m:74,stage:"R32",date:"2026-06-29",venue:"Foxborough",A:"WE",B:"3D"},
-  {m:75,stage:"R32",date:"2026-06-29",venue:"Monterrey",A:"WF",B:"RC"},
-  {m:76,stage:"R32",date:"2026-06-29",venue:"Houston",A:"WC",B:"RF"},
-  {m:77,stage:"R32",date:"2026-06-30",venue:"East Rutherford",A:"WI",B:"3F"},
-  {m:78,stage:"R32",date:"2026-06-30",venue:"Arlington",A:"RE",B:"RI"},
-  {m:79,stage:"R32",date:"2026-06-30",venue:"Mexico City",A:"WA",B:"3E"},
-  {m:80,stage:"R32",date:"2026-07-01",venue:"Atlanta",A:"WL",B:"3K"},
-  {m:81,stage:"R32",date:"2026-07-01",venue:"Santa Clara",A:"WD",B:"3B"},
-  {m:82,stage:"R32",date:"2026-07-01",venue:"Seattle",A:"WG",B:"3I"},
-  {m:83,stage:"R32",date:"2026-07-02",venue:"Toronto",A:"RK",B:"RL"},
-  {m:84,stage:"R32",date:"2026-07-02",venue:"Inglewood",A:"WH",B:"RJ"},
-  {m:85,stage:"R32",date:"2026-07-02",venue:"Vancouver",A:"WB",B:"3J"},
-  {m:86,stage:"R32",date:"2026-07-03",venue:"Miami Gardens",A:"WJ",B:"RH"},
-  {m:87,stage:"R32",date:"2026-07-03",venue:"Kansas City",A:"WK",B:"3L"},
-  {m:88,stage:"R32",date:"2026-07-03",venue:"Arlington",A:"RD",B:"RG"},
-  {m:89,stage:"R16",date:"2026-07-04",venue:"Philadelphia",A:"M74",B:"M77"},
-  {m:90,stage:"R16",date:"2026-07-04",venue:"Houston",A:"M73",B:"M75"},
-  {m:91,stage:"R16",date:"2026-07-05",venue:"East Rutherford",A:"M76",B:"M78"},
-  {m:92,stage:"R16",date:"2026-07-05",venue:"Mexico City",A:"M79",B:"M80"},
-  {m:93,stage:"R16",date:"2026-07-06",venue:"Arlington",A:"M83",B:"M84"},
-  {m:94,stage:"R16",date:"2026-07-06",venue:"Seattle",A:"M81",B:"M82"},
-  {m:95,stage:"R16",date:"2026-07-07",venue:"Atlanta",A:"M86",B:"M88"},
-  {m:96,stage:"R16",date:"2026-07-07",venue:"Vancouver",A:"M85",B:"M87"},
-  {m:97,stage:"QF",date:"2026-07-09",venue:"Foxborough",A:"M89",B:"M90"},
-  {m:98,stage:"QF",date:"2026-07-10",venue:"Inglewood",A:"M93",B:"M94"},
-  {m:99,stage:"QF",date:"2026-07-11",venue:"Miami Gardens",A:"M91",B:"M92"},
-  {m:100,stage:"QF",date:"2026-07-11",venue:"Kansas City",A:"M95",B:"M96"},
-  {m:101,stage:"SF",date:"2026-07-14",venue:"Arlington",A:"M97",B:"M98"},
-  {m:102,stage:"SF",date:"2026-07-15",venue:"Atlanta",A:"M99",B:"M100"},
-  {m:103,stage:THIRD_PLACE,date:"2026-07-18",venue:"Miami Gardens",A:"L101",B:"L102"},
-  {m:104,stage:"Final",date:"2026-07-19",venue:"East Rutherford",A:"M101",B:"M102"},
+  {m:73,stage:"R32",kickoff:"2026-06-28T19:00:00Z",venue:"Inglewood",A:"RA",B:"RB"},
+  {m:74,stage:"R32",kickoff:"2026-06-29T20:30:00Z",venue:"Foxborough",A:"WE",B:"3D"},
+  {m:75,stage:"R32",kickoff:"2026-06-30T01:00:00Z",venue:"Monterrey",A:"WF",B:"RC"},
+  {m:76,stage:"R32",kickoff:"2026-06-29T17:00:00Z",venue:"Houston",A:"WC",B:"RF"},
+  {m:77,stage:"R32",kickoff:"2026-06-30T21:00:00Z",venue:"East Rutherford",A:"WI",B:"3F"},
+  {m:78,stage:"R32",kickoff:"2026-06-30T17:00:00Z",venue:"Arlington",A:"RE",B:"RI"},
+  {m:79,stage:"R32",kickoff:"2026-07-01T01:00:00Z",venue:"Mexico City",A:"WA",B:"3E"},
+  {m:80,stage:"R32",kickoff:"2026-07-01T16:00:00Z",venue:"Atlanta",A:"WL",B:"3K"},
+  {m:81,stage:"R32",kickoff:"2026-07-02T00:00:00Z",venue:"Santa Clara",A:"WD",B:"3B"},
+  {m:82,stage:"R32",kickoff:"2026-07-01T20:00:00Z",venue:"Seattle",A:"WG",B:"3I"},
+  {m:83,stage:"R32",kickoff:"2026-07-02T23:00:00Z",venue:"Toronto",A:"RK",B:"RL"},
+  {m:84,stage:"R32",kickoff:"2026-07-02T19:00:00Z",venue:"Inglewood",A:"WH",B:"RJ"},
+  {m:85,stage:"R32",kickoff:"2026-07-03T03:00:00Z",venue:"Vancouver",A:"WB",B:"3J"},
+  {m:86,stage:"R32",kickoff:"2026-07-03T22:00:00Z",venue:"Miami Gardens",A:"WJ",B:"RH"},
+  {m:87,stage:"R32",kickoff:"2026-07-04T01:30:00Z",venue:"Kansas City",A:"WK",B:"3L"},
+  {m:88,stage:"R32",kickoff:"2026-07-03T18:00:00Z",venue:"Arlington",A:"RD",B:"RG"},
+  {m:89,stage:"R16",kickoff:"2026-07-04T21:00:00Z",venue:"Philadelphia",A:"M74",B:"M77"},
+  {m:90,stage:"R16",kickoff:"2026-07-04T17:00:00Z",venue:"Houston",A:"M73",B:"M75"},
+  {m:91,stage:"R16",kickoff:"2026-07-05T20:00:00Z",venue:"East Rutherford",A:"M76",B:"M78"},
+  {m:92,stage:"R16",kickoff:"2026-07-06T00:00:00Z",venue:"Mexico City",A:"M79",B:"M80"},
+  {m:93,stage:"R16",kickoff:"2026-07-06T19:00:00Z",venue:"Arlington",A:"M83",B:"M84"},
+  {m:94,stage:"R16",kickoff:"2026-07-07T00:00:00Z",venue:"Seattle",A:"M81",B:"M82"},
+  {m:95,stage:"R16",kickoff:"2026-07-07T16:00:00Z",venue:"Atlanta",A:"M86",B:"M88"},
+  {m:96,stage:"R16",kickoff:"2026-07-07T20:00:00Z",venue:"Vancouver",A:"M85",B:"M87"},
+  {m:97,stage:"QF",kickoff:"2026-07-09T20:00:00Z",venue:"Foxborough",A:"M89",B:"M90"},
+  {m:98,stage:"QF",kickoff:"2026-07-10T19:00:00Z",venue:"Inglewood",A:"M93",B:"M94"},
+  {m:99,stage:"QF",kickoff:"2026-07-11T21:00:00Z",venue:"Miami Gardens",A:"M91",B:"M92"},
+  {m:100,stage:"QF",kickoff:"2026-07-12T01:00:00Z",venue:"Kansas City",A:"M95",B:"M96"},
+  {m:101,stage:"SF",kickoff:"2026-07-14T19:00:00Z",venue:"Arlington",A:"M97",B:"M98"},
+  {m:102,stage:"SF",kickoff:"2026-07-15T19:00:00Z",venue:"Atlanta",A:"M99",B:"M100"},
+  {m:103,stage:THIRD_PLACE,kickoff:"2026-07-18T21:00:00Z",venue:"Miami Gardens",A:"L101",B:"L102"},
+  {m:104,stage:"Final",kickoff:"2026-07-19T19:00:00Z",venue:"East Rutherford",A:"M101",B:"M102"},
 ];
 // Top-to-bottom match order per round so each later round sits between its two
 // feeder matches, giving a properly aligned bracket.
@@ -880,7 +881,7 @@ function standingsGroups(d){
       <div class="third-list">${thirdHtml}</div></div>`;
 }
 function shortStage(s){ return s===THIRD_PLACE?"3P":s; }
-function fmtDateShort(date){ const d=new Date(date+"T12:00:00Z"); return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+function fmtDateShort(iso){ const d=new Date(iso); return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 // Resolve every scheduled knockout match to concrete teams. Group slots come from
 // the live standings; later rounds chase the winner/loser of feeder matches; the
 // recorded feed result (if any) is matched by team pair to supply the score and
@@ -943,7 +944,7 @@ function renderKoBracket(d){
       return `<div class="bteam ${isWin?"win":""} ${isLose?"lose":""}">${nm}<span class="bsc">${sc}</span></div>`;
     };
     return `<div class="bmatch ${m.played?"done":""}">${row(m.a,m.aLabel)}${row(m.b,m.bLabel)}
-      <div class="bmeta">${fmtDateShort(m.date)} · ${m.venue}${SCORE.ko[m.stage]?` · win +${SCORE.ko[m.stage]}`:""}</div></div>`;
+      <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)}<br>${m.venue}${SCORE.ko[m.stage]?` · win +${SCORE.ko[m.stage]}`:""}</div></div>`;
   };
   const cols=KO_COLUMNS.map(([label,nums])=>
     `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`).join("");
@@ -986,7 +987,7 @@ function groupRow(m){
 // round label for the by-date view).
 function koSynth(km, tag){
   const o={a:km.a, b:km.b, aLabel:km.aLabel, bLabel:km.bLabel, stage:km.stage, tag,
-    kickoff:km.date+"T18:00:00Z", koDate:true, venue:km.venue, sa:"", sb:""};
+    kickoff:km.kickoff, venue:km.venue, sa:"", sb:""};
   if(km.played){
     const aA=km.a===km.ko.a;
     o.sa=aA?km.ko.sa:km.ko.sb; o.sb=aA?km.ko.sb:km.ko.sa;
@@ -1013,7 +1014,7 @@ function resultsByRound(d){
     const ms=Object.values(M).filter(m=>m.stage===st).sort((a,b)=>a.m-b.m);
     if(!ms.length) return;
     const playedN=ms.filter(m=>m.played).length;
-    const rows=ms.map(km=>dateRow(koSynth(km, fmtDateShort(km.date)))).join("");
+    const rows=ms.map(km=>dateRow(koSynth(km, fmtDateShort(km.kickoff)))).join("");
     sections.push(`<details class="daygroup" ${playedN>0?'open':''}><summary class="dayhdr"><span class="dlbl"><span class="dcaret">▸</span>${label}</span><span class="st">${playedN}/${ms.length} played</span></summary>${rows}</details>`);
   });
   return sections.join("");
@@ -1046,7 +1047,7 @@ function dateRow(m){
   // Group rows show the kickoff time; knockout rows (no exact time yet) show the
   // venue. For a level knockout decided on penalties (or with a recorded winner),
   // mark who advanced.
-  const pending = m.koDate ? (m.venue||"TBD") : fmtTime(m.kickoff);
+  const pending = fmtTime(m.kickoff);
   const w = (played(m) && m.stage && num(m.sa)===num(m.sb)) ? koWinner(m) : null;
   const cell=(team,label,side)=>{
     const cls = w ? (w===team?' win':' lose') : '';
