@@ -209,8 +209,7 @@
   .bsc{font-weight:800; min-width:14px; text-align:right}
   .bpen{font-size:10px; color:var(--muted); margin-left:2px; font-weight:600}
   .bmeta{font-size:10px; color:var(--dim); padding:4px 10px; border-top:1px solid var(--line); background:rgba(0,0,0,.14); line-height:1.4}
-  .bthird{max-width:200px; margin-top:16px}
-  .bthird .bcol-h{text-align:left}
+  .bthird-h{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); text-align:center; font-weight:700; margin:18px 0 8px}
 
   .note{font-size:12px; color:var(--muted); line-height:1.6}
   .rules{font-size:13px; line-height:1.8}
@@ -946,12 +945,16 @@ function renderKoBracket(d){
     return `<div class="bmatch ${m.played?"done":""}">${row(m.a,m.aLabel)}${row(m.b,m.bLabel)}
       <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)}<br>${m.venue}</div></div>`;
   };
-  const cols=KO_COLUMNS.map(([label,nums])=>
-    `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`).join("");
+  const cols=KO_COLUMNS.map(([label,nums])=>{
+    // The third-place playoff lives at the foot of the Final column.
+    const body = label==="Final"
+      ? `<div class="bfinalwrap">${nums.map(card).join("")}<div class="bthird-h">Third-Place Playoff</div>${card(103)}</div>`
+      : nums.map(card).join("");
+    return `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${body}</div></div>`;
+  }).join("");
   return `<div class="panel"><h2>Knockout Bracket</h2>
     <div class="note" style="margin:0 0 10px">Round of 32 matchups are set from the final group standings; winners advance as results come in. Scroll sideways to follow the bracket. <span class="owned">Owned teams</span> are highlighted.</div>
-    <div class="bracket-scroll"><div class="bracket">${cols}</div></div>
-    <div class="bthird"><div class="bcol-h">Third-Place Playoff</div>${card(103)}</div></div>`;
+    <div class="bracket-scroll"><div class="bracket">${cols}</div></div></div>`;
 }
 
 let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")==="date"?"date":"round"; }catch(e){ return "round"; } })();
