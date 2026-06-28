@@ -944,7 +944,7 @@ function renderKoBracket(d){
       return `<div class="bteam ${isWin?"win":""} ${isLose?"lose":""}">${nm}<span class="bsc">${sc}</span></div>`;
     };
     return `<div class="bmatch ${m.played?"done":""}">${row(m.a,m.aLabel)}${row(m.b,m.bLabel)}
-      <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)}<br>${m.venue}${SCORE.ko[m.stage]?` · win +${SCORE.ko[m.stage]}`:""}</div></div>`;
+      <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)}<br>${m.venue}</div></div>`;
   };
   const cols=KO_COLUMNS.map(([label,nums])=>
     `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`).join("");
