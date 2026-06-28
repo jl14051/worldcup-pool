@@ -943,7 +943,7 @@ function renderKoBracket(d){
       return `<div class="bteam ${isWin?"win":""} ${isLose?"lose":""}">${nm}<span class="bsc">${sc}</span></div>`;
     };
     return `<div class="bmatch ${m.played?"done":""}">${row(m.a,m.aLabel)}${row(m.b,m.bLabel)}
-      <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)}<br>${m.venue}</div></div>`;
+      <div class="bmeta">${fmtDateShort(m.kickoff)} · ${fmtTime(m.kickoff)} · ${m.venue}</div></div>`;
   };
   const cols=KO_COLUMNS.map(([label,nums])=>{
     // The third-place playoff lives at the foot of the Final column.
