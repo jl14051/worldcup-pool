@@ -174,6 +174,8 @@
   .vs{color:var(--dim); text-align:center; font-size:12px}
   .tname{font-weight:600; font-size:14px; cursor:pointer}
   .tname.owned{color:var(--accent)}
+  .tname.tbd{color:var(--dim); font-weight:500; font-size:12px; cursor:default}
+  .ko-item .tbd{color:var(--dim); font-weight:500}
 
   .ko-add{display:grid; grid-template-columns:120px 1fr 60px 18px 60px 1fr auto; gap:8px; align-items:center}
   select,input.txt{background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:8px; font-size:13px}
@@ -187,6 +189,26 @@
   .ko-item .stg{font-size:11px; color:var(--gold); font-weight:700; text-transform:uppercase}
   .win{color:var(--green); font-weight:700}
   .lose{color:var(--muted)}
+
+  /* Knockout bracket tree */
+  .bracket-scroll{overflow-x:auto; padding-bottom:10px; -webkit-overflow-scrolling:touch}
+  .bracket{display:flex; gap:16px; min-width:max-content; align-items:stretch}
+  .bcol{display:flex; flex-direction:column; width:178px; flex:none}
+  .bcol-h{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); text-align:center; margin-bottom:10px; font-weight:700}
+  .bcol-body{flex:1; display:flex; flex-direction:column; justify-content:space-around; gap:10px; min-height:0}
+  .bmatch{background:var(--bg2); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+  .bmatch.done{border-color:var(--card2)}
+  .bteam{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 10px; font-size:13px; font-weight:600}
+  .bteam+.bteam{border-top:1px solid var(--line)}
+  .bteam.win{color:var(--green)} .bteam.win .bsc{color:var(--green)}
+  .bteam.lose{opacity:.5}
+  .bteam .tbd{color:var(--dim); font-weight:500; font-size:11.5px}
+  .bteam .owned{color:var(--accent)}
+  .bsc{font-weight:800; min-width:14px; text-align:right}
+  .bpen{font-size:10px; color:var(--muted); margin-left:2px; font-weight:600}
+  .bmeta{font-size:10px; color:var(--dim); padding:4px 10px; border-top:1px solid var(--line); background:rgba(0,0,0,.14); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bthird{max-width:200px; margin-top:16px}
+  .bthird .bcol-h{text-align:left}
 
   .note{font-size:12px; color:var(--muted); line-height:1.6}
   .rules{font-size:13px; line-height:1.8}
@@ -300,6 +322,56 @@ const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfin
 // in the knockout bracket. Only its display label lives here.
 const THIRD_PLACE = "3P";
 const KO_LABEL = {...Object.fromEntries(KO_STAGES), [THIRD_PLACE]:"Third Place"};
+
+// 2026 knockout schedule and bracket structure (match numbers 73-104), with real
+// dates and host cities. Slot refs resolve to live teams: "Wx"/"Rx"/"3x" = the
+// winner / runner-up / third-placed team of group x; "Mn" = winner of match n;
+// "Ln" = loser of match n. The eight group-winner-vs-third pairings use the FIFA
+// official third-place assignment for the qualifying set B/D/E/F/I/J/K/L
+// (validated against the round-of-32 eligibility rules).
+const KO_SCHED = [
+  {m:73,stage:"R32",date:"2026-06-28",venue:"Inglewood",A:"RA",B:"RB"},
+  {m:74,stage:"R32",date:"2026-06-29",venue:"Foxborough",A:"WE",B:"3D"},
+  {m:75,stage:"R32",date:"2026-06-29",venue:"Monterrey",A:"WF",B:"RC"},
+  {m:76,stage:"R32",date:"2026-06-29",venue:"Houston",A:"WC",B:"RF"},
+  {m:77,stage:"R32",date:"2026-06-30",venue:"East Rutherford",A:"WI",B:"3F"},
+  {m:78,stage:"R32",date:"2026-06-30",venue:"Arlington",A:"RE",B:"RI"},
+  {m:79,stage:"R32",date:"2026-06-30",venue:"Mexico City",A:"WA",B:"3E"},
+  {m:80,stage:"R32",date:"2026-07-01",venue:"Atlanta",A:"WL",B:"3K"},
+  {m:81,stage:"R32",date:"2026-07-01",venue:"Santa Clara",A:"WD",B:"3B"},
+  {m:82,stage:"R32",date:"2026-07-01",venue:"Seattle",A:"WG",B:"3I"},
+  {m:83,stage:"R32",date:"2026-07-02",venue:"Toronto",A:"RK",B:"RL"},
+  {m:84,stage:"R32",date:"2026-07-02",venue:"Inglewood",A:"WH",B:"RJ"},
+  {m:85,stage:"R32",date:"2026-07-02",venue:"Vancouver",A:"WB",B:"3J"},
+  {m:86,stage:"R32",date:"2026-07-03",venue:"Miami Gardens",A:"WJ",B:"RH"},
+  {m:87,stage:"R32",date:"2026-07-03",venue:"Kansas City",A:"WK",B:"3L"},
+  {m:88,stage:"R32",date:"2026-07-03",venue:"Arlington",A:"RD",B:"RG"},
+  {m:89,stage:"R16",date:"2026-07-04",venue:"Philadelphia",A:"M74",B:"M77"},
+  {m:90,stage:"R16",date:"2026-07-04",venue:"Houston",A:"M73",B:"M75"},
+  {m:91,stage:"R16",date:"2026-07-05",venue:"East Rutherford",A:"M76",B:"M78"},
+  {m:92,stage:"R16",date:"2026-07-05",venue:"Mexico City",A:"M79",B:"M80"},
+  {m:93,stage:"R16",date:"2026-07-06",venue:"Arlington",A:"M83",B:"M84"},
+  {m:94,stage:"R16",date:"2026-07-06",venue:"Seattle",A:"M81",B:"M82"},
+  {m:95,stage:"R16",date:"2026-07-07",venue:"Atlanta",A:"M86",B:"M88"},
+  {m:96,stage:"R16",date:"2026-07-07",venue:"Vancouver",A:"M85",B:"M87"},
+  {m:97,stage:"QF",date:"2026-07-09",venue:"Foxborough",A:"M89",B:"M90"},
+  {m:98,stage:"QF",date:"2026-07-10",venue:"Inglewood",A:"M93",B:"M94"},
+  {m:99,stage:"QF",date:"2026-07-11",venue:"Miami Gardens",A:"M91",B:"M92"},
+  {m:100,stage:"QF",date:"2026-07-11",venue:"Kansas City",A:"M95",B:"M96"},
+  {m:101,stage:"SF",date:"2026-07-14",venue:"Arlington",A:"M97",B:"M98"},
+  {m:102,stage:"SF",date:"2026-07-15",venue:"Atlanta",A:"M99",B:"M100"},
+  {m:103,stage:THIRD_PLACE,date:"2026-07-18",venue:"Miami Gardens",A:"L101",B:"L102"},
+  {m:104,stage:"Final",date:"2026-07-19",venue:"East Rutherford",A:"M101",B:"M102"},
+];
+// Top-to-bottom match order per round so each later round sits between its two
+// feeder matches, giving a properly aligned bracket.
+const KO_COLUMNS = [
+  ["Round of 32",[74,77,73,75,83,84,81,82,76,78,79,80,86,88,85,87]],
+  ["Round of 16",[89,90,93,94,91,92,95,96]],
+  ["Quarterfinals",[97,98,99,100]],
+  ["Semifinals",[101,102]],
+  ["Final",[104]],
+];
 
 const PARTICIPANTS = [
  {name:"Jake Levy",picks:["Netherlands","Spain","Morocco","Ecuador","Saudi Arabia","Czechia"],tiebreaker:267},
@@ -795,33 +867,90 @@ function renderStandings(d){
       <div class="third-list">${thirdHtml}</div></div>
     ${ko}`;
 }
+function shortStage(s){ return s===THIRD_PLACE?"3P":s; }
+function fmtDateShort(date){ const d=new Date(date+"T12:00:00Z"); return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+// Resolve every scheduled knockout match to concrete teams. Group slots come from
+// the live standings; later rounds chase the winner/loser of feeder matches; the
+// recorded feed result (if any) is matched by team pair to supply the score and
+// winner. Returns a map keyed by match number.
+function koMatches(d){
+  const teamOf=ref=>{
+    const arr=d.standings[ref.slice(1)]; if(!arr) return null;
+    const idx={W:0,R:1,"3":2}[ref[0]];
+    return arr[idx] ? arr[idx].team : null;
+  };
+  const koByPair={};
+  state.ko.forEach(e=>{ koByPair[[e.a,e.b].slice().sort().join("|")]=e; });
+  const byNum={};
+  const slot=ref=>{
+    if(ref[0]==="M") return byNum[+ref.slice(1)] ? byNum[+ref.slice(1)].winner : null;
+    if(ref[0]==="L") return byNum[+ref.slice(1)] ? byNum[+ref.slice(1)].loser  : null;
+    return teamOf(ref);
+  };
+  const label=ref=>{
+    if(ref[0]==="M"||ref[0]==="L"){
+      const r=byNum[+ref.slice(1)], pre=ref[0]==="M"?"Winner":"Loser";
+      if(r && r.a && r.b) return `${pre}: ${r.a} / ${r.b}`;
+      return r ? `${pre} ${shortStage(r.stage)}` : `${pre} #${ref.slice(1)}`;
+    }
+    const g=ref.slice(1);
+    return ref[0]==="W"?`Winner ${g}`:ref[0]==="R"?`Runner-up ${g}`:`3rd ${g}`;
+  };
+  KO_SCHED.slice().sort((x,y)=>x.m-y.m).forEach(s=>{   // feeders (lower numbers) first
+    const r={...s};
+    r.a=slot(s.A); r.b=slot(s.B);
+    r.aLabel=r.a||label(s.A); r.bLabel=r.b||label(s.B);
+    r.ko=(r.a&&r.b)?(koByPair[[r.a,r.b].slice().sort().join("|")]||null):null;
+    r.played=!!(r.ko&&played(r.ko));
+    r.winner=r.played?koWinner(r.ko):null;
+    r.loser=r.winner?(r.winner===r.a?r.b:r.a):null;
+    byNum[s.m]=r;
+  });
+  return byNum;
+}
+function koGoals(m,team){ if(!m.played) return null; return team===m.ko.a?num(m.ko.sa):num(m.ko.sb); }
+function koPensTeam(m,team){
+  if(!m.played) return null;
+  const pa=num(m.ko.pa), pb=num(m.ko.pb);
+  if(num(m.ko.sa)!==num(m.ko.sb) || pa===null || pb===null) return null;
+  return team===m.ko.a?pa:pb;
+}
 function renderKoBracket(d){
-  if(!state.ko.length) return `<div class="panel"><h2>Knockout Bracket</h2><div class="note">Knockout matchups appear here automatically once the group stage ends and the bracket is set.</div></div>`;
-  const byStage = KO_STAGES.map(([s,label])=>{
-    const ms = state.ko.filter(m=>m.stage===s);
-    if(!ms.length) return "";
-    const items = ms.map(m=>{
-      const sa=num(m.sa),sb=num(m.sb), done=sa!==null&&sb!==null;
-      let w=null; if(done){ w = sa>sb?m.a:sb>sa?m.b:(m.winner||null); }
-      const side=(team,sc)=>`<span class="${w===team?'win':done?'lose':''} ${ownClass(team)}">${team}${done?` ${sc}`:''}</span>`;
-      return `<div class="ko-item"><span class="stg">${label}</span>
-        <span>${side(m.a,sa)} <span style="color:var(--dim)">v</span> ${side(m.b,sb)}${done&&sa===sb?' <span class="gd">(pens)</span>':''}</span>
-        <span>${w?`<span class="win">${w} +${SCORE.ko[s]}</span>`:'<span class="gd">pending</span>'}</span><span></span></div>`;
-    }).join("");
-    return `<div class="gcard" style="margin-top:10px"><h3>${label} <span class="gd">win = ${SCORE.ko[s]} pts</span></h3>${items}</div>`;
-  }).join("");
-  return `<div class="panel"><h2>Knockout Bracket</h2>${byStage}</div>`;
+  if(!d.allComplete && !state.ko.length)
+    return `<div class="panel"><h2>Knockout Bracket</h2><div class="note">The bracket appears here once the group stage is complete and the matchups are set.</div></div>`;
+  const M=koMatches(d);
+  const card=n=>{
+    const m=M[n]; if(!m) return "";
+    const row=(team,lbl)=>{
+      const isWin=m.played&&m.winner===team, isLose=m.played&&m.winner&&m.winner!==team;
+      const g=koGoals(m,team), p=koPensTeam(m,team);
+      const nm=team
+        ? `<span class="${ownClass(team)}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`
+        : `<span class="tbd">${lbl}</span>`;
+      const sc=m.played?`${g}${p!=null?`<span class="bpen">(${p})</span>`:""}`:"";
+      return `<div class="bteam ${isWin?"win":""} ${isLose?"lose":""}">${nm}<span class="bsc">${sc}</span></div>`;
+    };
+    return `<div class="bmatch ${m.played?"done":""}">${row(m.a,m.aLabel)}${row(m.b,m.bLabel)}
+      <div class="bmeta">${fmtDateShort(m.date)} · ${m.venue}${SCORE.ko[m.stage]?` · win +${SCORE.ko[m.stage]}`:""}</div></div>`;
+  };
+  const cols=KO_COLUMNS.map(([label,nums])=>
+    `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`).join("");
+  return `<div class="panel"><h2>Knockout Bracket</h2>
+    <div class="note" style="margin:0 0 10px">Round of 32 matchups are set from the final group standings; winners advance as results come in. Scroll sideways to follow the bracket. <span class="owned">Owned teams</span> are highlighted.</div>
+    <div class="bracket-scroll"><div class="bracket">${cols}</div></div>
+    <div class="bthird"><div class="bcol-h">Third-Place Playoff</div>${card(103)}</div></div>`;
 }
 
 let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")||"group"; }catch(e){ return "group"; } })();
 window.setResultsView = v => { resultsView=v; try{ localStorage.setItem("resultsView",v); }catch(e){} renderResults(); };
 
-function renderResults(){
+function renderResults(d){
+  d = d || compute();
   const toggle = `<div class="seg">
       <button class="segbtn ${resultsView==='group'?'active':''}" onclick="setResultsView('group')">By group</button>
       <button class="segbtn ${resultsView==='date'?'active':''}" onclick="setResultsView('date')">By date</button>
     </div>`;
-  const body = resultsView==='date' ? resultsByDate() : resultsByGroup();
+  const body = resultsView==='date' ? resultsByDate(d) : resultsByGroup(d);
   $("#results").innerHTML = `
     <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. <span class="owned">Owned teams</span> are highlighted in purple; tap any team to see who picked it.</div>
     ${toggle}
@@ -834,7 +963,12 @@ function matchCenter(m, pendingText){
     : `<span class="rkick">${pendingText}</span>`;
 }
 
-function resultsByGroup(){
+function koLineStr(m){
+  const ga=koGoals(m,m.a), gb=koGoals(m,m.b);
+  const pa=koPensTeam(m,m.a), pb=koPensTeam(m,m.b);
+  return (pa!=null&&pb!=null) ? `${ga} (${pa})–(${pb}) ${gb}` : `${ga}–${gb}`;
+}
+function resultsByGroup(d){
   const groupForms = Object.keys(GROUPS).map(g=>{
     const ms = state.groups[g];
     const playedN = ms.filter(played).length;
@@ -846,38 +980,45 @@ function resultsByGroup(){
     return `<details class="ginput" ${playedN>0?'open':''}><summary>Group ${g} <span class="st">${playedN}/6 played</span></summary>${rows}</details>`;
   }).join("");
 
-  const koList = state.ko.map(m=>{
-    const done=played(m), tie=done&&num(m.sa)===num(m.sb);
-    const winner = done ? koWinner(m) : null;
-    const nm = team=>`<span class="${ownClass(team)}${winner?(winner===team?' win':' lose'):''}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`;
-    // pa/pb present -> koScore already shows the shootout numbers. A level game
-    // with only a recorded winner gets a worded note instead of invented numbers.
-    const pensNote = (tie && num(m.pa)===null && num(m.pb)===null && m.winner)
-      ? ` <span class="note">(${m.winner} on pens)</span>` : '';
+  const koArr = Object.values(koMatches(d)).sort((a,b)=>a.m-b.m);
+  const koList = koArr.map(m=>{
+    const nm = (team,label)=> team
+      ? `<span class="${ownClass(team)}${m.played?(m.winner===team?' win':' lose'):''}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`
+      : `<span class="tbd">${label}</span>`;
+    const center = m.played ? `<b>${koLineStr(m)}</b>` : `<span class="gd">${fmtDateShort(m.date)}</span>`;
     return `<div class="ko-item">
       <span class="stg">${KO_LABEL[m.stage]||m.stage}</span>
-      <span>${nm(m.a)} ${done?`<b>${koScore(m)}</b>`:'vs'} ${nm(m.b)}${pensNote}</span>
-      <span class="gd">${done?(winner||'—'):'pending'}</span>
+      <span>${nm(m.a,m.aLabel)} ${center} ${nm(m.b,m.bLabel)}</span>
+      <span class="gd">${m.played?(m.winner||'—'):'—'}</span>
     </div>`;
   }).join("");
 
   return `<h2 style="font-size:16px;margin:6px 0">Group Stage</h2>
     ${groupForms}
-    ${state.ko.length?`<div class="panel"><h2>Knockout Stage</h2><div style="margin-top:8px">${koList}</div></div>`:''}`;
+    <div class="panel"><h2>Knockout Stage</h2><div style="margin-top:8px">${koList}</div></div>`;
 }
 
-function resultsByDate(){
-  const dated = [], undated = [];
+function resultsByDate(d){
+  const items = [];
   for(const [g,ms] of Object.entries(state.groups))
-    ms.forEach(m=>dated.push({...m, tag:"Group "+g}));
-  state.ko.forEach(m=>{
-    const item = {...m, tag:KO_LABEL[m.stage]||m.stage};
-    (m.kickoff?dated:undated).push(item);
+    ms.forEach(m=>items.push({a:m.a, b:m.b, aLabel:m.a, bLabel:m.b, sa:m.sa, sb:m.sb, pa:m.pa, pb:m.pb,
+      winner:m.winner, stage:null, tag:"Group "+g, kickoff:m.kickoff}));
+  Object.values(koMatches(d)).forEach(km=>{
+    const o={a:km.a, b:km.b, aLabel:km.aLabel, bLabel:km.bLabel, stage:km.stage, tag:KO_LABEL[km.stage]||km.stage,
+      kickoff:km.date+"T18:00:00Z", koDate:true, venue:km.venue, sa:"", sb:""};
+    if(km.played){
+      const aIsKoA = km.a===km.ko.a;
+      o.sa=aIsKoA?km.ko.sa:km.ko.sb; o.sb=aIsKoA?km.ko.sb:km.ko.sa;
+      const pa=num(km.ko.pa), pb=num(km.ko.pb);
+      if(pa!==null&&pb!==null){ o.pa=aIsKoA?km.ko.pa:km.ko.pb; o.pb=aIsKoA?km.ko.pb:km.ko.pa; }
+      if(km.ko.winner) o.winner=km.ko.winner;
+    }
+    items.push(o);
   });
-  dated.sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff));
+  items.sort((a,b)=> new Date(a.kickoff)-new Date(b.kickoff));
 
   const days=[], byKey={};
-  dated.forEach(m=>{
+  items.forEach(m=>{
     const info=dayInfo(m.kickoff);
     if(!byKey[info.key]){ byKey[info.key]={info, ms:[]}; days.push(byKey[info.key]); }
     byKey[info.key].ms.push(m);
@@ -886,29 +1027,25 @@ function resultsByDate(){
   const dayBlock = ({info, ms}) => {
     const relCls = info.rel==="Today"?"d-today":info.rel==="Tomorrow"?"d-tom":"";
     const rel = info.rel?`<span class="drel ${relCls}">${info.rel}</span>`:`<span class="st">${ms.length} game${ms.length>1?'s':''}</span>`;
-    const rows = ms.map(m=>dateRow(m, fmtTime(m.kickoff))).join("");
-    return `<details class="daygroup" open><summary class="dayhdr ${info.rel==='Today'?'d-today':''}"><span class="dlbl"><span class="dcaret">▸</span>${info.label}</span>${rel}</summary>${rows}</details>`;
+    return `<details class="daygroup" open><summary class="dayhdr ${info.rel==='Today'?'d-today':''}"><span class="dlbl"><span class="dcaret">▸</span>${info.label}</span>${rel}</summary>${ms.map(dateRow).join("")}</details>`;
   };
-
-  const dayHtml = days.map(dayBlock).join("");
-  const koHtml = undated.length
-    ? `<details class="daygroup" open><summary class="dayhdr"><span class="dlbl"><span class="dcaret">▸</span>Knockout stage</span><span class="st">date TBD</span></summary>${undated.map(m=>dateRow(m,"TBD")).join("")}</details>`
-    : "";
-  return dayHtml + koHtml || `<div class="empty">No fixtures to show.</div>`;
+  return days.map(dayBlock).join("") || `<div class="empty">No fixtures to show.</div>`;
 }
 
-function dateRow(m, pendingText){
-  // For a level knockout decided on penalties (or with a recorded winner),
-  // mark who advanced. The score line shows the result for decided games.
+function dateRow(m){
+  // Group rows show the kickoff time; knockout rows (no exact time yet) show the
+  // venue. For a level knockout decided on penalties (or with a recorded winner),
+  // mark who advanced.
+  const pending = m.koDate ? (m.venue||"TBD") : fmtTime(m.kickoff);
   const w = (played(m) && m.stage && num(m.sa)===num(m.sb)) ? koWinner(m) : null;
-  const clsA = w ? (w===m.a?' win':' lose') : '';
-  const clsB = w ? (w===m.b?' win':' lose') : '';
-  const center = `<span class="rcenter">${matchCenter(m, pendingText)}<span class="rtag">${m.tag}</span></span>`;
-  return `<div class="rmatch ${played(m)?'done':''}">
-    <div class="tname tA ${ownClass(m.a)}${clsA}" onclick="showOwners('${m.a}', event)">${m.a}</div>
-    ${center}
-    <div class="tname tB ${ownClass(m.b)}${clsB}" onclick="showOwners('${m.b}', event)">${m.b}</div>
-  </div>`;
+  const cell=(team,label,side)=>{
+    const cls = w ? (w===team?' win':' lose') : '';
+    return team
+      ? `<div class="tname t${side} ${ownClass(team)}${cls}" onclick="showOwners('${team}', event)">${team}</div>`
+      : `<div class="tname t${side} tbd">${label}</div>`;
+  };
+  const center = `<span class="rcenter">${matchCenter(m, pending)}<span class="rtag">${m.tag}</span></span>`;
+  return `<div class="rmatch ${played(m)?'done':''}">${cell(m.a,m.aLabel,'A')}${center}${cell(m.b,m.bLabel,'B')}</div>`;
 }
 
 function renderAbout(d){
