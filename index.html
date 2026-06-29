@@ -1005,7 +1005,13 @@ function renderKoBracket(d){
 }
 
 let resultsView = (()=>{ try{ return localStorage.getItem("resultsView")==="date"?"date":"round"; }catch(e){ return "round"; } })();
-window.setResultsView = v => { resultsView=v; try{ localStorage.setItem("resultsView",v); }catch(e){} renderResults(); };
+window.setResultsView = v => { resultsView=v; try{ localStorage.setItem("resultsView",v); }catch(e){} renderResults(); if(v==='date') scrollResultsToToday(); };
+// Scroll the By date list to today (or the next upcoming day). Fires only on
+// user-initiated opens, never on the background poll, so reading the past is
+// never interrupted.
+function scrollResultsToToday(){
+  const el=document.getElementById("resultsToday"); if(el) el.scrollIntoView({block:"start"});
+}
 
 function renderResults(d){
   d = d || compute();
@@ -1085,10 +1091,15 @@ function resultsByDate(d){
     byKey[info.key].ms.push(m);
   });
 
+  // Anchor for "jump to today": today's block if it has games, else the next
+  // upcoming day, else the last day. Used to scroll the tab into place on open.
+  const now=new Date(), todayKey=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const anchorKey = (days.find(x=>x.info.key>=todayKey) || days[days.length-1] || {info:{}}).info.key;
+
   const dayBlock = ({info, ms}) => {
     const relCls = info.rel==="Today"?"d-today":info.rel==="Tomorrow"?"d-tom":"";
     const rel = info.rel?`<span class="drel ${relCls}">${info.rel}</span>`:`<span class="st">${ms.length} game${ms.length>1?'s':''}</span>`;
-    return `<details class="daygroup" open><summary class="dayhdr ${info.rel==='Today'?'d-today':''}"><span class="dlbl"><span class="dcaret">▸</span>${info.label}</span>${rel}</summary>${ms.map(dateRow).join("")}</details>`;
+    return `<details class="daygroup"${info.key===anchorKey?' id="resultsToday"':''} open><summary class="dayhdr ${info.rel==='Today'?'d-today':''}"><span class="dlbl"><span class="dcaret">▸</span>${info.label}</span>${rel}</summary>${ms.map(dateRow).join("")}</details>`;
   };
   return days.map(dayBlock).join("") || `<div class="empty">No fixtures to show.</div>`;
 }
@@ -1248,6 +1259,7 @@ document.querySelectorAll(".tab").forEach(tab=>{
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     tab.classList.add("active");
     $("#"+tab.dataset.view).classList.add("active");
+    if(tab.dataset.view==='results' && resultsView==='date') scrollResultsToToday();
   });
 });
 
