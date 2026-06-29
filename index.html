@@ -850,20 +850,23 @@ function renderLeaderboard(d){
 // phase they were scored in (t.gf is the group total; the rest are knockout).
 function teamCardBody(t){
   const groupGoals = t.gf, koGoals = t.goals - t.gf;
+  // Eliminated teams will earn nothing further, so their empty sections read
+  // "no points" rather than "no points yet".
+  const none = `<span class="chip dim">${t.eliminated?'no points':'no points yet'}</span>`;
   const g=[];
-  if(groupGoals) g.push(`<span class="chip">${groupGoals}⚽ = ${groupGoals}</span>`);
+  if(groupGoals) g.push(`<span class="chip">⚽ = ${groupGoals}</span>`);
   if(t.matchPts) g.push(`<span class="chip">${t.w}W ${t.d}D = ${t.matchPts}</span>`);
   if(t.place===1&&t.placePts) g.push(`<span class="chip gold">1st = ${SCORE.first}</span>`);
   else if(t.place===2&&t.placePts) g.push(`<span class="chip silver">2nd = ${SCORE.second}</span>`);
   else if(t.bestThird) g.push(`<span class="chip green">3rd adv = ${SCORE.bestThird}</span>`);
   let html = `<div class="phase-h"><span class="ph-lbl">Group</span> · <b>${t.played}</b> of 3 played</div>
-    <div class="chips">${g.length?g.join(""):'<span class="chip dim">no points yet</span>'}</div>`;
+    <div class="chips">${g.length?g.join(""):none}</div>`;
   if(t.ko.length){
     const k=[];
-    if(koGoals) k.push(`<span class="chip">${koGoals}⚽ = ${koGoals}</span>`);
+    if(koGoals) k.push(`<span class="chip">⚽ = ${koGoals}</span>`);
     t.ko.filter(x=>x.won && x.pts>0).forEach(x=>k.push(`<span class="chip gold">${x.stage} win = ${x.pts}</span>`));
     html += `<div class="phase-h"><span class="ph-lbl">Knockout</span> · <b>${t.ko.length}</b> played</div>
-      <div class="chips">${k.length?k.join(""):'<span class="chip dim">no points yet</span>'}</div>`;
+      <div class="chips">${k.length?k.join(""):none}</div>`;
   }
   return html;
 }
