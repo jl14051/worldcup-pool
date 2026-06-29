@@ -702,7 +702,7 @@ function compute(){
       else if(last && last.stage==="Final"){ o.statusKind="run"; o.statusLabel="Runner-up"; }
       else { o.statusKind="out"; o.statusLabel="Eliminated"; }
     } else if(!last){
-      if(o.through){ o.statusKind="alive"; o.statusLabel="Qualified"; }
+      if(o.through){ o.statusKind="alive"; o.statusLabel="Round of 32"; }
       else { o.statusKind="cont"; o.statusLabel="In contention"; }
     } else if(last.stage==="SF"){
       o.statusKind="alive"; o.statusLabel = last.won ? "Final" : "Third-place playoff";
