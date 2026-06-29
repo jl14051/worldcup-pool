@@ -692,6 +692,10 @@ function compute(){
     //   already in the bracket, OR top-2 guaranteed in every remaining scenario,
     //   OR a confirmed best third (known only once all groups finish).
     o.through = !o.eliminated && (koTeams.has(t) || securedTop2 || o.bestThird);
+    // ADVANCED = qualified out of the group. Unlike "through", this stays true
+    // after a later knockout loss, so the group table keeps its ✓ for a team
+    // that got out of the group even once it is knocked out of the tournament.
+    o.advanced = securedTop2 || o.bestThird;
     // Progress-aware roster badge: where the team is now, or how it finished.
     // statusKind drives the chip color; statusLabel is the text.
     const kos = o.ko.slice().sort((a,b)=>KO_RANK[a.stage]-KO_RANK[b.stage]);
@@ -841,8 +845,8 @@ function renderLeaderboard(d){
       <div class="stat"><div class="v">${matchesPlayed()} / ${matchesTotal()}</div><div class="l">Matches played</div></div>
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Total goals scored</div></div>
     </div>
-    ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results entered yet. The tournament kicks off today; group scores sync automatically as matches finish, and standings update live.</div>`}
-    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
+    ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results yet. Scores sync automatically as matches finish, and the board updates live.</div>`}
+    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand${d.allComplete?'':' · placement points are provisional'}</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 // Team card body: games played and points, split into a Group section and (once
@@ -895,7 +899,7 @@ function standingsGroups(d){
     const rows = d.standings[g].map((t,i)=>`
       <tr class="${i<2?'q'+(i+1):(i===2&&t.thirdAdv?'q3':'')}">
         <td></td>
-        <td onclick="showOwners('${t.team}', event)" style="cursor:pointer"><span class="${ownClass(t.team)}">${t.team}</span>${t.through?' <span class="qstat qm-through" title="Secured a knockout spot">✓</span>':t.eliminated?' <span class="qstat qm-out" title="Eliminated">✗</span>':''}</td>
+        <td onclick="showOwners('${t.team}', event)" style="cursor:pointer"><span class="${ownClass(t.team)}">${t.team}</span>${t.advanced?' <span class="qstat qm-through" title="Advanced from the group">✓</span>':t.eliminated?' <span class="qstat qm-out" title="Did not advance from the group">✗</span>':''}</td>
         <td>${t.played}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
         <td>${t.gf}</td><td>${t.ga}</td><td>${t.gf-t.ga>=0?'+':''}${t.gf-t.ga}</td>
         <td class="pt">${t.matchPts}</td>
@@ -912,7 +916,7 @@ function standingsGroups(d){
     </div>`).join("");
 
   return `
-    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). <span class="key"><span class="qstat qm-through">✓</span> secured a knockout spot</span><span class="key"><span class="qstat qm-out">✗</span> eliminated</span>Standings &amp; placement are <b>provisional</b> until all group matches are entered. <span class="owned">Owned teams</span> are highlighted.</div>
+    <div class="note" style="margin-bottom:14px">Top 2 of each group advance (🥇gold / 🥈silver bars). Best 8 of 12 third-place teams also advance (🟢green bar). <span class="key"><span class="qstat qm-through">✓</span> advanced</span><span class="key"><span class="qstat qm-out">✗</span> did not advance</span>${d.allComplete?'':'Standings &amp; placement are <b>provisional</b> until all group matches are entered. '}<span class="owned">Owned teams</span> are highlighted.</div>
     <div class="grid12">${cards}</div>
     <div class="panel"><h2>Best Third-Placed Teams <span class="pill">top 8 advance</span></h2>
       <div class="third-list">${thirdHtml}</div></div>`;
