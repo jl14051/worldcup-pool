@@ -93,18 +93,19 @@
   .tcard .tn{font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center}
   .tcard .tg{font-size:11px; color:var(--dim)}
   .tcard .tp{font-weight:800; color:var(--green)}
-  .tcard .tgh{font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); margin-top:6px}
-  .tcard .tgames{font-size:11px; color:var(--dim); margin-top:1px}
-  .tcard .tgames .tg-stat{white-space:nowrap}
-  .tcard .tgames b{color:var(--txt); font-weight:700}
-  .tcard .tgames .tg-ko{color:var(--accent)}
-  .tcard .tstatus{display:inline-block; font-size:10px; font-weight:700; padding:1px 8px; border-radius:20px; margin-top:5px; border:1px solid transparent}
-  .ts-through{color:var(--green); background:rgba(39,224,138,.12); border-color:rgba(39,224,138,.4)!important}
+  .tcard .tstatus{display:inline-block; font-size:10px; font-weight:700; padding:1px 8px; border-radius:20px; margin-top:6px; border:1px solid transparent}
+  .ts-cont{color:var(--muted); background:var(--card2); border-color:var(--line)!important}
+  .ts-alive{color:var(--green); background:rgba(39,224,138,.12); border-color:rgba(39,224,138,.4)!important}
+  .ts-champ{color:var(--gold); background:rgba(255,206,77,.14); border-color:rgba(255,206,77,.45)!important}
+  .ts-run{color:#cdd6ff; background:rgba(205,214,255,.12); border-color:rgba(205,214,255,.4)!important}
+  .ts-third{color:#e3a06b; background:rgba(227,160,107,.14); border-color:rgba(227,160,107,.4)!important}
   .ts-out{color:var(--red); background:rgba(255,93,115,.10); border-color:rgba(255,93,115,.35)!important}
-  .ts-contention{color:var(--muted); background:var(--card2); border-color:var(--line)!important}
-  .brk{font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5}
-  .brk span{display:inline-block; background:var(--card2); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin:2px 3px 0 0}
-  .pos-1{color:var(--gold)} .pos-2{color:#cdd6ff} .pos-3{color:var(--green)} .pos-4{color:var(--red)}
+  .tcard .phase-h{font-size:10px; color:var(--dim); margin:9px 0 4px}
+  .tcard .ph-lbl{text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700}
+  .tcard .phase-h b{color:var(--txt); font-weight:700}
+  .tcard .chips{display:flex; flex-wrap:wrap; gap:4px}
+  .tcard .chip{background:var(--card2); border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:11px; color:var(--muted); white-space:nowrap}
+  .tcard .chip.gold{color:var(--gold)} .tcard .chip.silver{color:#cdd6ff} .tcard .chip.green{color:var(--green)} .tcard .chip.dim{opacity:.55}
 
   /* Standings */
   .grid12{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px}
@@ -325,6 +326,10 @@ const KO_STAGES = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarterfin
 // in the knockout bracket. Only its display label lives here.
 const THIRD_PLACE = "3P";
 const KO_LABEL = {...Object.fromEntries(KO_STAGES), [THIRD_PLACE]:"Third Place"};
+// For the roster status badge: the round a team enters after winning a stage,
+// and a chronological rank so the most recent knockout game can be found.
+const KO_NEXT = {R32:"Round of 16", R16:"Quarterfinal", QF:"Semifinal", SF:"Final"};
+const KO_RANK = {R32:1, R16:2, QF:3, SF:4, [THIRD_PLACE]:5, Final:5};
 
 // 2026 knockout schedule and bracket structure (match numbers 73-104), with real
 // kickoff times (UTC) and host cities. Kickoffs are the published US Eastern
@@ -687,7 +692,25 @@ function compute(){
     //   already in the bracket, OR top-2 guaranteed in every remaining scenario,
     //   OR a confirmed best third (known only once all groups finish).
     o.through = !o.eliminated && (koTeams.has(t) || securedTop2 || o.bestThird);
-    o.status = o.eliminated ? "out" : (o.through ? "through" : "contention");
+    // Progress-aware roster badge: where the team is now, or how it finished.
+    // statusKind drives the chip color; statusLabel is the text.
+    const kos = o.ko.slice().sort((a,b)=>KO_RANK[a.stage]-KO_RANK[b.stage]);
+    const last = kos[kos.length-1];
+    if(o.eliminated){
+      if(last && last.stage==="Final" && last.won){ o.statusKind="champ"; o.statusLabel="Champion"; }
+      else if(last && last.stage===THIRD_PLACE && last.won){ o.statusKind="third"; o.statusLabel="3rd place"; }
+      else if(last && last.stage==="Final"){ o.statusKind="run"; o.statusLabel="Runner-up"; }
+      else { o.statusKind="out"; o.statusLabel="Eliminated"; }
+    } else if(!last){
+      if(o.through){ o.statusKind="alive"; o.statusLabel="Qualified"; }
+      else { o.statusKind="cont"; o.statusLabel="In contention"; }
+    } else if(last.stage==="SF"){
+      o.statusKind="alive"; o.statusLabel = last.won ? "Final" : "Third-place playoff";
+    } else if(last.won && KO_NEXT[last.stage]){
+      o.statusKind="alive"; o.statusLabel=KO_NEXT[last.stage];
+    } else {
+      o.statusKind="alive"; o.statusLabel=KO_LABEL[last.stage]||last.stage;  // game not yet decided
+    }
   });
 
   // ---- Participants ----
@@ -793,11 +816,9 @@ function renderLeaderboard(d){
     const teams = p.teams.slice().sort((a,b)=>b.total-a.total).map(t=>`
       <div class="tcard">
         <div class="tn"><span class="${ownClass(t.team)}">${t.team}</span><span class="tp">${t.total}</span></div>
-        <div class="tg">Group ${t.group} · ${t.placeLabel||"—"}${t.bestThird?" (advanced 3rd)":""}</div>
-        <div class="tstatus ts-${t.status}">${t.status==='through'?'✓ Through to knockouts':t.status==='out'?'Eliminated':'In contention'}</div>
-        <div class="tgh">Games played</div>
-        <div class="tgames"><span class="tg-stat">Group <b>${t.played}</b> of 3</span> · <span class="tg-stat">Knockout <b class="tg-ko">${t.ko.length}</b></span></div>
-        <div class="brk">${teamBreakdown(t)}</div>
+        <div class="tg">Group ${t.group} · ${t.placeLabel||"—"}</div>
+        <div class="tstatus ts-${t.statusKind}">${t.statusKind==='champ'?'🏆 ':''}${t.statusLabel}</div>
+        ${teamCardBody(t)}
       </div>`).join("");
     return `
     <tr data-id="${p.id}">
@@ -824,15 +845,27 @@ function renderLeaderboard(d){
     <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand · placement points are provisional</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
-function teamBreakdown(t){
-  const b=[];
-  if(t.goals) b.push(`${t.goals}⚽ = ${t.goals}`);
-  if(t.matchPts) b.push(`${t.w}W ${t.d}D = ${t.matchPts}`);
-  if(t.place===1&&t.placePts) b.push(`<span class="pos-1">1st = 8</span>`);
-  else if(t.place===2&&t.placePts) b.push(`<span class="pos-2">2nd = 4</span>`);
-  else if(t.bestThird) b.push(`<span class="pos-3">3rd adv = 2</span>`);
-  t.ko.filter(k=>k.won && k.pts>0).forEach(k=>b.push(`<span class="pos-1">${k.stage} W = ${k.pts}</span>`));
-  return b.length? b.map(x=>`<span>${x}</span>`).join("") : `<span style="opacity:.5">no points yet</span>`;
+// Team card body: games played and points, split into a Group section and (once
+// any knockout game is played) a Knockout section. Goals are attributed to the
+// phase they were scored in (t.gf is the group total; the rest are knockout).
+function teamCardBody(t){
+  const groupGoals = t.gf, koGoals = t.goals - t.gf;
+  const g=[];
+  if(groupGoals) g.push(`<span class="chip">${groupGoals}⚽ = ${groupGoals}</span>`);
+  if(t.matchPts) g.push(`<span class="chip">${t.w}W ${t.d}D = ${t.matchPts}</span>`);
+  if(t.place===1&&t.placePts) g.push(`<span class="chip gold">1st = ${SCORE.first}</span>`);
+  else if(t.place===2&&t.placePts) g.push(`<span class="chip silver">2nd = ${SCORE.second}</span>`);
+  else if(t.bestThird) g.push(`<span class="chip green">3rd adv = ${SCORE.bestThird}</span>`);
+  let html = `<div class="phase-h"><span class="ph-lbl">Group</span> · <b>${t.played}</b> of 3 played</div>
+    <div class="chips">${g.length?g.join(""):'<span class="chip dim">no points yet</span>'}</div>`;
+  if(t.ko.length){
+    const k=[];
+    if(koGoals) k.push(`<span class="chip">${koGoals}⚽ = ${koGoals}</span>`);
+    t.ko.filter(x=>x.won && x.pts>0).forEach(x=>k.push(`<span class="chip gold">${x.stage} win = ${x.pts}</span>`));
+    html += `<div class="phase-h"><span class="ph-lbl">Knockout</span> · <b>${t.ko.length}</b> played</div>
+      <div class="chips">${k.length?k.join(""):'<span class="chip dim">no points yet</span>'}</div>`;
+  }
+  return html;
 }
 window.toggleRow = id=>{
   const tr = document.querySelector(`tr[data-id="${id}"]`);
