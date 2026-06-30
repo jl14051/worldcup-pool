@@ -3,14 +3,14 @@
 
 Runs hourly via GitHub Actions. Syncs finished group-stage games into
 results["groups"] and finished knockout games (Round of 32 through the Final)
-into results["ko"]. Scores recorded are regulation plus extra-time goals only;
-the feed carries no penalty-shootout data, so a bracket knockout game that is
-level after extra time cannot have its advancing team determined (see the
-shootout handling below). The third-place playoff is also recorded into
-results["ko"], under stage "3P": its goals count toward the tournament total
-and each team's goal points, but it earns no win points (the front end's score
-table does not list that stage) and needs no advancing team, so a level score
-is recorded as-is rather than treated as a pending shootout.
+into results["ko"]. Goals recorded are regulation plus extra time. When a
+bracket knockout game is level after extra time, the feed's shootout tally
+(home_penalty_score / away_penalty_score) is recorded as pa/pb so the advancing
+team is known; only if that tally is missing is the game left for hand-entry (a
+score is never guessed). The third-place playoff is also recorded into
+results["ko"], under stage "3P": its goals count toward the tournament total and
+each team's goal points, but it earns no win points (the front end's score table
+does not list that stage).
 
 Every successful run writes checked.json {"checked": <UTC now>} as a heartbeat,
 so the page can show when the feed was last read even when nothing changed.
@@ -202,6 +202,9 @@ def main():
                 f"Finished {stage} game without numeric score: {home} vs {away} "
                 f"(home_score={game.get('home_score')!r} away_score={game.get('away_score')!r})"
             )
+        # Penalty-shootout tally for games level after extra time (absent/None
+        # for games settled in regulation or extra time).
+        hp, ap = to_int(game.get("home_penalty_score")), to_int(game.get("away_penalty_score"))
 
         if is_group:
             group_finished += 1
@@ -209,21 +212,17 @@ def main():
             group_scores[key] = {home: hs, away: as_}
             group_labels[key] = f"{home} vs {away}"
         elif is_third:
-            # Third-place playoff: no advancing team and no win points, so a
-            # level score (decided on penalties) is fine to record as-is. The
-            # goals still count toward the tournament total and each team's goal
-            # points. Stored under THIRD_PLACE, which carries zero win points.
-            ko_games.append((stage, home, away, hs, as_))
+            # Third-place playoff: goals count but it earns no win points and
+            # needs no advancing team, so record it as-is (with the shootout
+            # tally too, if the game was level).
+            ko_games.append((stage, home, away, hs, as_, hp, ap))
         else:
-            if hs == as_:
-                # Level after extra time means a penalty shootout, which the
-                # feed cannot represent. This is a permanent condition that
-                # would recur every run, so do NOT abort here (that would block
-                # every later knockout game from syncing). If results["ko"]
-                # already holds a result for this pair (hand-entered or from an
-                # earlier run), it is handled, so skip silently. Otherwise record
-                # nothing (never guess a score) and collect a label for an alert
-                # raised after all writes, nagging the owner to hand-enter it.
+            if hs == as_ and (hp is None or ap is None or hp == ap):
+                # Level after extra time with no usable shootout tally in the
+                # feed: never guess a winner. If results["ko"] already holds a
+                # result for this pair (an earlier run or a hand-entry), it is
+                # handled, so skip silently; otherwise collect a label for the
+                # alert raised after all writes, nagging the owner to enter it.
                 already = any(
                     frozenset((e.get("a"), e.get("b"))) == frozenset((home, away))
                     for e in results.get("ko", [])
@@ -231,7 +230,8 @@ def main():
                 if not already:
                     pending_shootouts.append(f"{home} vs {away} ({stage})")
                 continue
-            ko_games.append((stage, home, away, hs, as_))
+            # Decisive in regulation/ET, or level with a shootout tally to record.
+            ko_games.append((stage, home, away, hs, as_, hp, ap))
 
     changed = False
 
@@ -261,9 +261,13 @@ def main():
     # unordered team pair (a pair meets at most once in single elimination).
     ko = results.setdefault("ko", [])
     ko_synced = 0
-    for stage, home, away, hs, as_ in ko_games:
+    for stage, home, away, hs, as_, hp, ap in ko_games:
         ko_synced += 1
         entry = {"stage": stage, "a": home, "b": away, "sa": hs, "sb": as_}
+        # Attach the shootout tally only when the game was level (so a regulation
+        # result never carries stray pa/pb fields from the feed).
+        if hs == as_ and hp is not None and ap is not None:
+            entry["pa"], entry["pb"] = hp, ap
         existing = next(
             (e for e in ko if frozenset((e.get("a"), e.get("b"))) == frozenset((home, away))),
             None,
@@ -310,9 +314,9 @@ def main():
     # advancing team until that result lands in results["ko"].
     if pending_shootouts:
         fail(
-            "Knockout game(s) level after extra time need a hand-entered result; "
-            f"the feed carries no penalty-shootout data: {pending_shootouts}. "
-            'Add the advancing scoreline to results.json "ko"; until then this run '
+            "Knockout game(s) level after extra time with no shootout tally in the "
+            f"feed need a hand-entered result: {pending_shootouts}. "
+            'Add the scoreline and pa/pb to results.json "ko"; until then this run '
             "exits non-zero to keep alerting."
         )
 
