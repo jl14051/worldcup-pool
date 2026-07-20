@@ -1,11 +1,11 @@
 name: Fetch World Cup results
 
 on:
-  schedule:
-    # Every 30 min, off the top-of-hour window where GitHub drops the most
-    # scheduled runs. GitHub cron is best-effort and can still be delayed;
-    # use the "Run workflow" button for an immediate sync.
-    - cron: "17,47 * * * *"
+  # Scheduled sync is disabled: the tournament is over, so there is nothing left
+  # to fetch. To bring it back for a future tournament, uncomment the schedule
+  # block below. The manual "Run workflow" button still works either way.
+  # schedule:
+  #   - cron: "17,47 * * * *"
   workflow_dispatch: {}    # manual "Run workflow" button
 
 permissions:

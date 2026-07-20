@@ -80,6 +80,9 @@
   .alive{font-size:11px; color:var(--dim); margin-top:2px}
   .alive.alive-on{color:#5cb389}
   .alive.alive-out{color:#cf6b7a}
+  .fin{font-size:11px; color:var(--muted); margin-top:2px}
+  .fin.fin-champ{color:var(--gold); font-weight:600}
+  .winner-tag{margin-top:6px; font-size:11px; font-weight:700; color:var(--gold)}
   .pemail{font-size:11px; color:var(--dim)}
   .ptot{font-weight:800; font-size:19px; text-align:right}
   .tb{font-size:12px; color:var(--muted); text-align:right}
@@ -410,11 +413,6 @@ const PARTICIPANTS = [
 // Which teams are owned by at least one player (for highlighting)
 const OWNED = new Set(PARTICIPANTS.flatMap(p=>p.picks));
 
-// Keep the header player count in sync with the roster.
-{
-  const sub = document.getElementById("subline");
-  if(sub) sub.textContent = `Draft-six-teams office pool · live leaderboard · ${PARTICIPANTS.length} players`;
-}
 
 /* ============================ STATE ============================ */
 
@@ -753,7 +751,8 @@ function compute(){
   // Every scheduled game (group + knockout + third place = 104) has a score.
   // Once true, the tiebreaker display switches from per-game rates to raw totals.
   const tournamentComplete = gamesPlayed >= matchesTotal();
-  return {T, standings, thirdsRanked, totalGoals, goalsPerGame, board, allComplete, tournamentComplete};
+  const champion = ALL_TEAMS.find(t=>T[t].statusKind==='champ') || null;
+  return {T, standings, thirdsRanked, totalGoals, goalsPerGame, board, allComplete, tournamentComplete, champion};
 }
 // FIFA-style: pts, GD, GF (simplified)
 function cmpTeam(a,b){
@@ -806,14 +805,30 @@ document.addEventListener("keydown", e=>{ if(e.key==="Escape") hideOwners(); });
 window.addEventListener("scroll", hideOwners, true);
 window.addEventListener("resize", hideOwners);
 
+// Best finish among a player's teams, for the end-of-tournament summary line.
+function teamFinish(t){
+  if(t.statusKind==='champ') return {rank:8, label:'champion'};
+  if(t.statusKind==='run')   return {rank:7, label:'runner-up'};
+  if(t.statusKind==='third') return {rank:6, label:'3rd place'};
+  const st=new Set((t.ko||[]).map(k=>k.stage));
+  if(st.has(THIRD_PLACE)||st.has('SF')) return {rank:5, label:'4th place'};
+  if(st.has('QF'))  return {rank:4, label:'reached the quarterfinals'};
+  if(st.has('R16')) return {rank:3, label:'reached the round of 16'};
+  if(st.has('R32')) return {rank:2, label:'reached the round of 32'};
+  return {rank:1, label:'group stage'};
+}
 function renderLeaderboard(d){
   const anyPlayed = d.totalGoals>0 || state.ko.length>0;
+  const done = d.tournamentComplete;
+  const sub = document.getElementById("subline");
+  if(sub) sub.textContent = `Draft-six-teams office pool · ${done?'final standings':'live leaderboard'} · ${PARTICIPANTS.length} players`;
   const podium = d.board.slice(0,3).map((p,i)=>`
     <div class="pod p${p.rank}">
       <div class="medal">${["🥇","🥈","🥉"][p.rank-1]}</div>
       <div class="rank">${p.tied?'T':''}${p.rank}</div>
       <div class="nm">${p.name}</div>
       <div class="pts">${p.total}</div>
+      ${done&&p.rank===1?`<div class="winner-tag">🏆 Pool winner</div>`:''}
     </div>`).join("");
 
   const rows = d.board.map(p=>{
@@ -829,7 +844,7 @@ function renderLeaderboard(d){
       <td>
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
-          <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div><div class="alive ${p.aliveCount===0?'alive-out':'alive-on'}">${p.aliveCount}/${p.teams.length} alive</div></div>
+          <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div>${(()=>{ if(!done) return `<div class="alive ${p.aliveCount===0?'alive-out':'alive-on'}">${p.aliveCount}/${p.teams.length} alive</div>`; const bt=p.teams.slice().sort((a,b)=>teamFinish(b).rank-teamFinish(a).rank || b.total-a.total)[0]; const f=teamFinish(bt); return `<div class="fin${f.rank===8?' fin-champ':''}">${f.rank===8?'🏆 ':''}Top team: ${bt.team} (${f.label})</div>`; })()}</div>
           <div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>
           <div class="ptot">${p.total}</div>
         </div>
@@ -844,6 +859,7 @@ function renderLeaderboard(d){
     <div class="stat-strip">
       <div class="stat"><div class="v">${matchesPlayed()} / ${matchesTotal()}</div><div class="l">Matches played</div></div>
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Total goals scored</div></div>
+      ${d.champion?`<div class="stat"><div class="v">${d.champion} 🏆</div><div class="l">World Cup champion</div></div>`:''}
     </div>
     ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results yet. Scores sync automatically as matches finish, and the board updates live.</div>`}
     <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand${d.allComplete?'':' · placement points are provisional'}</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
@@ -1021,7 +1037,7 @@ function renderResults(d){
     </div>`;
   const body = resultsView==='date' ? resultsByDate(d) : resultsByRound(d);
   $("#results").innerHTML = `
-    <div class="note" style="margin-bottom:14px">Live match results, pulled automatically. Scores are goals in regulation + extra time (shootouts excluded). Standings and points update as results come in. <span class="owned">Owned teams</span> are highlighted in purple; tap any team to see who picked it.</div>
+    <div class="note" style="margin-bottom:14px">${d.tournamentComplete?'Final match results.':'Live match results, pulled automatically. Standings and points update as results come in.'} Scores are goals in regulation + extra time (shootouts excluded). <span class="owned">Owned teams</span> are highlighted in purple; tap any team to see who picked it.</div>
     ${toggle}
     ${body}`;
 }
@@ -1136,9 +1152,11 @@ function renderAbout(d){
     <div class="panel"><h2>Picks rules</h2>
       <div class="note">Each player drafted 6 teams: 2 from Pot 1, 2 from Pot 2, 1 from Pot 3, 1 from Pot 4. Picks locked at the opening whistle, Thursday June 11, 2026.</div>
     </div>
-    <div class="panel"><h2>Live results feed</h2>
+    <div class="panel"><h2>Results feed</h2>
       <div class="note">Source: <b style="color:${dataSource==='live'?'var(--green)':'var(--gold)'}">${dataSource==='live'?'live results.json':'local (no feed found)'}</b> · scores last changed <b>${fmtUpdated()}</b> · last checked <b><span id="lastChecked">${fmtChecked()}</span></b>.
-      <b>Last checked</b> is when the GitHub Action last read the results feed (it runs every 30 minutes and records the time on every run). <b>Scores last changed</b> is when a score actually moved. A recent check with an older change time just means nothing new has happened. Results sync automatically from the feed and this board is read-only; the page reloads <code>results.json</code> every 3 minutes. <b>Export</b> downloads a snapshot of the current data as a <code>results.json</code> file.</div>
+      ${d.tournamentComplete
+        ? `The tournament is complete, so the automatic feed sync has been turned off and these results are final. The board is read-only. <b>Export</b> downloads a snapshot of the current data as a <code>results.json</code> file.`
+        : `<b>Last checked</b> is when the GitHub Action last read the results feed (it runs every 30 minutes and records the time on every run). <b>Scores last changed</b> is when a score actually moved. A recent check with an older change time just means nothing new has happened. Results sync automatically from the feed and this board is read-only; the page reloads <code>results.json</code> every 3 minutes. <b>Export</b> downloads a snapshot of the current data as a <code>results.json</code> file.`}</div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Export results.json</button>
       </div>
