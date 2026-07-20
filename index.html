@@ -872,9 +872,7 @@ function renderLeaderboard(d){
             : `<div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>`}
           <div class="ptot">${p.total}</div>
         </div>
-        <div class="detail" style="display:none"><div class="tb-detail">${d.tournamentComplete
-          ? `Goals guess: <b>${p.tiebreaker}</b> · Goals actual: <b>${d.totalGoals}</b>`
-          : `Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · Goals/game actual: <b>${d.goalsPerGame.toFixed(2)}</b>`}</div><div class="teamgrid">${teams}</div></div>
+        <div class="detail" style="display:none">${done?'':`<div class="tb-detail">Goals/game guess: <b>${p.guessPerGame.toFixed(2)}</b> (${p.tiebreaker} total) · Goals/game actual: <b>${d.goalsPerGame.toFixed(2)}</b></div>`}<div class="teamgrid">${teams}</div></div>
       </td>
     </tr>`;
   }).join("");
