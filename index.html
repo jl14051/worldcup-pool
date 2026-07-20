@@ -44,6 +44,15 @@
   @keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
 
   /* Leaderboard */
+  .winner-banner{display:flex; align-items:center; gap:14px; background:linear-gradient(90deg, rgba(255,206,77,.16), rgba(255,206,77,.03)); border:1px solid rgba(255,206,77,.5); border-radius:14px; padding:14px 18px; margin-bottom:16px; box-shadow:0 8px 30px rgba(255,206,77,.10)}
+  .winner-banner .wb-crown{font-size:34px; line-height:1}
+  .winner-banner .wb-text{display:flex; flex-direction:column; flex:1; min-width:0}
+  .winner-banner .wb-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--gold); font-weight:700}
+  .winner-banner .wb-name{font-size:22px; font-weight:800; color:var(--txt); line-height:1.15}
+  .winner-banner .wb-pts{font-size:26px; font-weight:800; color:var(--gold); white-space:nowrap}
+  .winner-banner .wb-pts-l{font-size:12px; color:var(--muted); font-weight:600; margin-left:4px}
+  .closest-line{font-size:12px; color:var(--muted); background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:8px 12px; margin-bottom:16px}
+  .closest-line b{color:var(--txt)}
   .podium{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:18px}
   .pod{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center; position:relative; overflow:hidden}
   .pod .rank{font-size:30px; font-weight:800}
@@ -702,7 +711,13 @@ function compute(){
       if(last && last.stage==="Final" && last.won){ o.statusKind="champ"; o.statusLabel="Champion"; }
       else if(last && last.stage===THIRD_PLACE && last.won){ o.statusKind="third"; o.statusLabel="3rd place"; }
       else if(last && last.stage==="Final"){ o.statusKind="run"; o.statusLabel="Runner-up"; }
-      else { o.statusKind="out"; o.statusLabel="Eliminated"; }
+      else {
+        // Out: label with exactly how far the team got, not just "eliminated".
+        o.statusKind="out";
+        o.statusLabel = !last ? "Group stage"
+          : (last.stage===THIRD_PLACE || last.stage==="SF") ? "4th place"
+          : (KO_LABEL[last.stage] || last.stage);
+      }
     } else if(!last){
       if(o.through){ o.statusKind="alive"; o.statusLabel="Round of 32"; }
       else { o.statusKind="cont"; o.statusLabel="In contention"; }
@@ -822,6 +837,13 @@ function renderLeaderboard(d){
   const done = d.tournamentComplete;
   const sub = document.getElementById("subline");
   if(sub) sub.textContent = `Draft-six-teams office pool · ${done?'final standings':'live leaderboard'} · ${PARTICIPANTS.length} players`;
+  // Pool winner and the closest goals guess (the tiebreaker), for the end state.
+  const winner = d.board[0];
+  const goalDiff = p => Math.abs(p.tiebreaker - d.totalGoals);
+  const minDiff = d.board.length ? Math.min(...d.board.map(goalDiff)) : 0;
+  const closestIds = new Set(d.board.filter(p=>goalDiff(p)===minDiff).map(p=>p.id));
+  const closestNames = d.board.filter(p=>goalDiff(p)===minDiff).map(p=>p.name);
+  const closest = d.board.find(p=>goalDiff(p)===minDiff);
   const podium = d.board.slice(0,3).map((p,i)=>`
     <div class="pod p${p.rank}">
       <div class="medal">${["🥇","🥈","🥉"][p.rank-1]}</div>
@@ -845,7 +867,9 @@ function renderLeaderboard(d){
         <div class="row-main" onclick="toggleRow(${p.id})">
           <div class="rk t${p.rank<=3?p.rank:''}">${p.tied?'T':''}${p.rank}</div>
           <div class="pinfo"><div class="pname">${p.name}<span class="caret">▸</span></div>${(()=>{ if(!done) return `<div class="alive ${p.aliveCount===0?'alive-out':'alive-on'}">${p.aliveCount}/${p.teams.length} alive</div>`; const bt=p.teams.slice().sort((a,b)=>teamFinish(b).rank-teamFinish(a).rank || b.total-a.total)[0]; const f=teamFinish(bt); return `<div class="fin${f.rank===8?' fin-champ':''}">${f.rank===8?'🏆 ':''}Top team: ${bt.team} (${f.label})</div>`; })()}</div>
-          <div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>
+          ${done
+            ? `<div class="games"><span class="g-head">Goals guessed</span><span class="g-stat"><span class="g-num">${p.tiebreaker}</span>${closestIds.has(p.id)?' <span title="Closest to the actual total">🎯</span>':''}</span><span class="g-stat"><span class="g-lbl">${goalDiff(p)===0?'exact!':'off by '+goalDiff(p)}</span></span></div>`
+            : `<div class="games"><span class="g-head">Games played</span><span class="g-stat"><span class="g-lbl">Group</span><span class="g-num">${p.grpPlayed}<span class="g-den"> of ${p.grpTotal}</span></span></span><span class="g-stat"><span class="g-lbl">Knockout</span><span class="g-num g-ko">${p.koGames}</span></span></div>`}
           <div class="ptot">${p.total}</div>
         </div>
         <div class="detail" style="display:none"><div class="tb-detail">${d.tournamentComplete
@@ -856,13 +880,15 @@ function renderLeaderboard(d){
   }).join("");
 
   $("#leaderboard").innerHTML = `
+    ${done?`<div class="winner-banner"><span class="wb-crown">🏆</span><span class="wb-text"><span class="wb-label">Pool champion</span><span class="wb-name">${winner.name}</span></span><span class="wb-pts">${winner.total}<span class="wb-pts-l">pts</span></span></div>`:''}
     <div class="stat-strip">
       <div class="stat"><div class="v">${matchesPlayed()} / ${matchesTotal()}</div><div class="l">Matches played</div></div>
       <div class="stat"><div class="v">${d.totalGoals}</div><div class="l">Total goals scored</div></div>
       ${d.champion?`<div class="stat"><div class="v">${d.champion} 🏆</div><div class="l">World Cup champion</div></div>`:''}
     </div>
     ${anyPlayed?`<div class="podium">${podium}</div>`:`<div class="empty">No results yet. Scores sync automatically as matches finish, and the board updates live.</div>`}
-    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand${d.allComplete?'':' · placement points are provisional'}</span><div class="lb-legend">Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.</div></th></tr></thead>
+    ${done?`<div class="closest-line">🎯 Closest goals guess: <b>${closestNames.join(' & ')}</b> — guessed ${closest.tiebreaker}, actual ${d.totalGoals} ${minDiff===0?'(exact!)':`(off by ${minDiff})`}</div>`:''}
+    <table class="lb"><thead><tr><th>Standings <span style="color:var(--dim);font-weight:400;text-transform:none">· click a player to expand${d.allComplete?'':' · placement points are provisional'}</span><div class="lb-legend">${done?`The goals column shows each player's guess of the total goals scored; the 🎯 marks the closest, which is the pool tiebreaker.`:`Games played counts the matches each player's six teams have played, which is where their points come from. The group stage is fixed at 18 per player (6 teams, 3 games each). Knockout games are added as teams advance, with no fixed total.`}</div></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 // Team card body: games played and points, split into a Group section and (once
