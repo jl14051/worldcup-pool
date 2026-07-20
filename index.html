@@ -91,7 +91,6 @@
   .alive.alive-out{color:#cf6b7a}
   .fin{font-size:11px; color:var(--muted); margin-top:2px}
   .fin.fin-champ{color:var(--gold); font-weight:600}
-  .winner-tag{margin-top:6px; font-size:11px; font-weight:700; color:var(--gold)}
   .pemail{font-size:11px; color:var(--dim)}
   .ptot{font-weight:800; font-size:19px; text-align:right}
   .tb{font-size:12px; color:var(--muted); text-align:right}
@@ -850,7 +849,6 @@ function renderLeaderboard(d){
       <div class="rank">${p.tied?'T':''}${p.rank}</div>
       <div class="nm">${p.name}</div>
       <div class="pts">${p.total}</div>
-      ${done&&p.rank===1?`<div class="winner-tag">🏆 Pool winner</div>`:''}
     </div>`).join("");
 
   const rows = d.board.map(p=>{
@@ -1017,9 +1015,10 @@ function renderKoBracket(d){
     const m=M[n]; if(!m) return "";
     const row=(team,lbl)=>{
       const isWin=m.played&&m.winner===team, isLose=m.played&&m.winner&&m.winner!==team;
+      const champ=m.stage==="Final"&&team&&team===m.winner;
       const g=koGoals(m,team), p=koPensTeam(m,team);
       const nm=team
-        ? `<span class="${ownClass(team)}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}</span>`
+        ? `<span class="${ownClass(team)}" onclick="showOwners('${team}', event)" style="cursor:pointer">${team}${champ?' 🏆':''}</span>`
         : `<span class="tbd">${lbl}</span>`;
       const sc=m.played?`${g}${p!=null?`<span class="bpen">(${p})</span>`:""}`:"";
       return `<div class="bteam ${isWin?"win":""} ${isLose?"lose":""}">${nm}<span class="bsc">${sc}</span></div>`;
@@ -1040,7 +1039,7 @@ function renderKoBracket(d){
     return `<div class="bcol"><div class="bcol-h">${label}</div><div class="bcol-body">${nums.map(card).join("")}</div></div>`;
   }).join("");
   return `<div class="panel"><h2>Knockout Bracket</h2>
-    <div class="note" style="margin:0 0 10px">Round of 32 matchups are set from the final group standings; winners advance as results come in. Scroll sideways to follow the bracket. <span class="owned">Owned teams</span> are highlighted.</div>
+    <div class="note" style="margin:0 0 10px">${d.tournamentComplete?'The completed knockout bracket.':'Round of 32 matchups are set from the final group standings; winners advance as results come in.'} Scroll sideways to follow it. <span class="owned">Owned teams</span> are highlighted.</div>
     <div class="bracket-scroll"><div class="bracket">${cols}</div></div></div>`;
 }
 
